@@ -1,0 +1,36 @@
+{
+    "ticket_status": {
+        "New": 0,
+        "Inprogress": 0,
+        "Awaiting": 0,
+        "Internal Solution Provided": 0,
+        "Resolved with Customer": 0,
+        "Closed": 7
+    },
+    "ticket_completed": {
+        "Abhijeet Nashikkar": 2,
+        "Aditya Anand": 1,
+        "Nishanth Senthilkumar": 0,
+        "Sakthivel s Venkatachalam": 3
+    },
+    "priority_distribution": {
+        "Priority 1": 0,
+        "Priority 2": 0,
+        "Priority 3": 1,
+        "Priority 4": 6
+    },
+    "sla": {
+        "SLA Met": 100,
+        "SLA Lost": 0
+    },
+    "account_count": {
+        "Automic": 7,
+        "Beigene": 0,
+        "BMS": 0,
+        "Collegium": 0,
+        "Azure Imdaas": 0,
+        "Aws Imdaas": 0,
+        "MDM": 0,
+        "Usbu-Pede": 0
+    }
+}

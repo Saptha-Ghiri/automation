@@ -698,96 +698,158 @@ def process_current_ticket(action, action_text="", selected_account=""):
         st.session_state.wb.save(st.session_state.file_path)
         st.session_state.current_row += 1
 
-def generate_charts_with_xlsxwriter():
-    """Generate charts using xlsxwriter while preserving original data and styles"""
+def generate_charts_with_openpyxl():
+    """Generate charts using openpyxl while preserving ALL original styles, fonts, colors"""
     try:
         stats = st.session_state.stats
         
-        # First, read all data and styles from the original file using openpyxl
-        wb_original = load_workbook(st.session_state.file_path)
-        ws_original = wb_original.active
-        
-        # Create a new file with charts using xlsxwriter
-        output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
-        workbook = xlsxwriter.Workbook(output_path)
-        worksheet = workbook.add_worksheet('Cloud Services Report')
-        
-        # Copy original data to new worksheet (preserving basic formatting)
-        for row_num, row in enumerate(ws_original.iter_rows(values_only=True), 1):
-            for col_num, value in enumerate(row, 1):
-                if value is not None:
-                    worksheet.write(row_num-1, col_num-1, value)
+        # Load the original file with openpyxl to preserve ALL formatting
+        wb = load_workbook(st.session_state.file_path)
+        ws = wb.active
         
         # Find the last row with data
-        last_row = ws_original.max_row
+        last_row = ws.max_row
         chart_start_row = last_row + 3
+        col_offset = 5  # Column E (1-indexed = 5)
         
-        # Add chart data starting after original data
-        col_offset = 4  # Column E (0-indexed = 4)
+        # Add chart data with preserved styles
+        from openpyxl.chart import BarChart, PieChart, Reference
+        from openpyxl.chart.label import DataLabelList
+        from openpyxl.drawing.colors import ColorChoice
         
-        # Ticket Status Chart Data
-        worksheet.write(chart_start_row, col_offset, "TICKET STATUS")
+        # 1. Ticket Status Chart Data
+        ws.cell(row=chart_start_row, column=col_offset, value="TICKET STATUS")
         row_offset = chart_start_row + 1
-        worksheet.write(row_offset, col_offset, "Status")
-        worksheet.write(row_offset, col_offset + 1, "Count")
+        ws.cell(row=row_offset, column=col_offset, value="Status")
+        ws.cell(row=row_offset, column=col_offset + 1, value="Count")
+        
         for i, (status, count) in enumerate(stats['dict_status'].items()):
-            worksheet.write(row_offset + i + 1, col_offset, status)
-            worksheet.write(row_offset + i + 1, col_offset + 1, count)
+            ws.cell(row=row_offset + i + 1, column=col_offset, value=status)
+            ws.cell(row=row_offset + i + 1, column=col_offset + 1, value=count)
         
-        # Create chart for status data
-        chart1 = workbook.add_chart({'type': 'column'})
+        # Create horizontal bar chart for status
+        chart1 = BarChart()
+        chart1.type = "bar"
+        chart1.style = 10
+        chart1.title = "Ticket Status Count"
+        chart1.y_axis.title = 'Status'
+        chart1.x_axis.title = 'Count'
+        
         data_end_row = row_offset + len(stats['dict_status'])
-        chart1.add_series({
-            'name': 'Ticket Status',
-            'categories': [worksheet.name, row_offset + 1, col_offset, data_end_row, col_offset],
-            'values': [worksheet.name, row_offset + 1, col_offset + 1, data_end_row, col_offset + 1],
-        })
-        chart1.set_title({'name': 'Ticket Status Count'})
-        worksheet.insert_chart(chart_start_row, col_offset + 3, chart1)
+        data = Reference(ws, min_col=col_offset + 1, min_row=row_offset + 1, max_row=data_end_row, max_col=col_offset + 1)
+        cats = Reference(ws, min_col=col_offset, min_row=row_offset + 1, max_row=data_end_row, max_col=col_offset)
+        chart1.add_data(data, titles_from_data=False)
+        chart1.set_categories(cats)
         
-        # User Ticket Completion Chart Data
+        # Position chart
+        chart1.width = 15
+        chart1.height = 10
+        ws.add_chart(chart1, f"H{chart_start_row}")
+        
+        # 2. User Ticket Completion Chart Data
         users_start_row = data_end_row + 5
-        worksheet.write(users_start_row, col_offset, "Ticket Completed by Individual")
+        ws.cell(row=users_start_row, column=col_offset, value="Ticket Completed by Individual")
         users_row_offset = users_start_row + 1
-        worksheet.write(users_row_offset, col_offset, "Users")
-        worksheet.write(users_row_offset, col_offset + 1, "Tickets")
+        ws.cell(row=users_row_offset, column=col_offset, value="Users")
+        ws.cell(row=users_row_offset, column=col_offset + 1, value="Tickets")
+        
         for i, (user, count) in enumerate(stats['ticket_completed'].items()):
-            worksheet.write(users_row_offset + i + 1, col_offset, user)
-            worksheet.write(users_row_offset + i + 1, col_offset + 1, count)
+            ws.cell(row=users_row_offset + i + 1, column=col_offset, value=user)
+            ws.cell(row=users_row_offset + i + 1, column=col_offset + 1, value=count)
         
-        # Create chart for user data
-        chart2 = workbook.add_chart({'type': 'bar'})
+        # Create horizontal bar chart for users
+        chart2 = BarChart()
+        chart2.type = "bar"
+        chart2.style = 11
+        chart2.title = "Users Completed"
+        chart2.y_axis.title = 'Users'
+        chart2.x_axis.title = 'Tickets'
+        
         users_end_row = users_row_offset + len(stats['ticket_completed'])
-        chart2.add_series({
-            'name': 'User Completions',
-            'categories': [worksheet.name, users_row_offset + 1, col_offset, users_end_row, col_offset],
-            'values': [worksheet.name, users_row_offset + 1, col_offset + 1, users_end_row, col_offset + 1],
-        })
-        chart2.set_title({'name': 'Users Completed'})
-        worksheet.insert_chart(users_start_row, col_offset + 3, chart2)
+        data2 = Reference(ws, min_col=col_offset + 1, min_row=users_row_offset + 1, max_row=users_end_row, max_col=col_offset + 1)
+        cats2 = Reference(ws, min_col=col_offset, min_row=users_row_offset + 1, max_row=users_end_row, max_col=col_offset)
+        chart2.add_data(data2, titles_from_data=False)
+        chart2.set_categories(cats2)
+        chart2.width = 15
+        chart2.height = 10
+        ws.add_chart(chart2, f"H{users_start_row}")
         
-        # Priority Distribution Pie Chart
+        # 3. Priority Distribution Pie Chart
         priority_start_row = users_end_row + 5
-        worksheet.write(priority_start_row, col_offset, "Priority wise ticket count")
+        ws.cell(row=priority_start_row, column=col_offset, value="Priority wise ticket count")
         priority_row_offset = priority_start_row + 1
-        worksheet.write(priority_row_offset, col_offset, "Priority")
-        worksheet.write(priority_row_offset, col_offset + 1, "Count")
+        ws.cell(row=priority_row_offset, column=col_offset, value="Priority")
+        ws.cell(row=priority_row_offset, column=col_offset + 1, value="Count")
+        
         for i, (priority, count) in enumerate(stats['priority'].items()):
-            worksheet.write(priority_row_offset + i + 1, col_offset, priority)
-            worksheet.write(priority_row_offset + i + 1, col_offset + 1, count)
+            ws.cell(row=priority_row_offset + i + 1, column=col_offset, value=priority)
+            ws.cell(row=priority_row_offset + i + 1, column=col_offset + 1, value=count)
         
         # Create pie chart for priority
-        chart3 = workbook.add_chart({'type': 'pie'})
+        chart3 = PieChart()
+        chart3.title = "Priority Distribution"
         priority_end_row = priority_row_offset + len(stats['priority'])
-        chart3.add_series({
-            'name': 'Priority Distribution',
-            'categories': [worksheet.name, priority_row_offset + 1, col_offset, priority_end_row, col_offset],
-            'values': [worksheet.name, priority_row_offset + 1, col_offset + 1, priority_end_row, col_offset + 1],
-        })
-        chart3.set_title({'name': 'Priority Distribution'})
-        worksheet.insert_chart(priority_start_row, col_offset + 3, chart3)
+        data3 = Reference(ws, min_col=col_offset + 1, min_row=priority_row_offset + 1, max_row=priority_end_row, max_col=col_offset + 1)
+        cats3 = Reference(ws, min_col=col_offset, min_row=priority_row_offset + 1, max_row=priority_end_row, max_col=col_offset)
+        chart3.add_data(data3, titles_from_data=False)
+        chart3.set_categories(cats3)
+        chart3.width = 15
+        chart3.height = 10
+        ws.add_chart(chart3, f"H{priority_start_row}")
         
-        workbook.close()
+        # 4. SLA Chart Data
+        sla_start_row = priority_end_row + 5
+        ws.cell(row=sla_start_row, column=col_offset, value="SLA")
+        sla_row_offset = sla_start_row + 1
+        ws.cell(row=sla_row_offset, column=col_offset, value="SLA Status")
+        ws.cell(row=sla_row_offset, column=col_offset + 1, value="Count")
+        ws.cell(row=sla_row_offset + 1, column=col_offset, value="SLA MET")
+        ws.cell(row=sla_row_offset + 1, column=col_offset + 1, value=100)
+        ws.cell(row=sla_row_offset + 2, column=col_offset, value="SLA LOST")
+        ws.cell(row=sla_row_offset + 2, column=col_offset + 1, value=0)
+        
+        # Create pie chart for SLA
+        chart4 = PieChart()
+        chart4.title = "SLA MET vs SLA LOST"
+        data4 = Reference(ws, min_col=col_offset + 1, min_row=sla_row_offset + 1, max_row=sla_row_offset + 2, max_col=col_offset + 1)
+        cats4 = Reference(ws, min_col=col_offset, min_row=sla_row_offset + 1, max_row=sla_row_offset + 2, max_col=col_offset)
+        chart4.add_data(data4, titles_from_data=False)
+        chart4.set_categories(cats4)
+        chart4.width = 15
+        chart4.height = 10
+        ws.add_chart(chart4, f"H{sla_start_row}")
+        
+        # 5. Account Count Chart Data
+        account_start_row = sla_row_offset + 8
+        ws.cell(row=account_start_row, column=col_offset, value="Ticket Count by Accountwise")
+        account_row_offset = account_start_row + 1
+        ws.cell(row=account_row_offset, column=col_offset, value="Account")
+        ws.cell(row=account_row_offset, column=col_offset + 1, value="Tickets")
+        
+        for i, (account, count) in enumerate(stats['account_count'].items()):
+            ws.cell(row=account_row_offset + i + 1, column=col_offset, value=account)
+            ws.cell(row=account_row_offset + i + 1, column=col_offset + 1, value=count)
+        
+        # Create horizontal bar chart for accounts
+        chart5 = BarChart()
+        chart5.type = "bar"
+        chart5.style = 12
+        chart5.title = "Ticket Count by Accountwise"
+        chart5.y_axis.title = 'Account'
+        chart5.x_axis.title = 'Tickets'
+        
+        account_end_row = account_row_offset + len(stats['account_count'])
+        data5 = Reference(ws, min_col=col_offset + 1, min_row=account_row_offset + 1, max_row=account_end_row, max_col=col_offset + 1)
+        cats5 = Reference(ws, min_col=col_offset, min_row=account_row_offset + 1, max_row=account_end_row, max_col=col_offset)
+        chart5.add_data(data5, titles_from_data=False)
+        chart5.set_categories(cats5)
+        chart5.width = 15
+        chart5.height = 10
+        ws.add_chart(chart5, f"H{account_start_row}")
+        
+        # Save the file with preserved formatting and new charts
+        output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
+        wb.save(output_path)
         
         # Create JSON data
         all_data = {
@@ -795,7 +857,8 @@ def generate_charts_with_xlsxwriter():
             'individual_data': stats['ticket_completed'], 
             'main_chart_data': stats['dict_status'],
             'pie1_data': stats['priority'],
-            'pie2_data': {"SLA MET": 100, "SLA LOST": 0}
+            'pie2_data': {"SLA MET": 100, "SLA LOST": 0},
+            'account_data': stats['account_count']
         }
         
         json_path = output_path.replace('.xlsx', '_data.json')
@@ -805,7 +868,7 @@ def generate_charts_with_xlsxwriter():
         return output_path, json_path
         
     except Exception as e:
-        st.error(f"Error generating charts with xlsxwriter: {e}")
+        st.error(f"Error generating charts with openpyxl: {e}")
         return None, None
 
 def generate_json_data_only():
@@ -904,16 +967,16 @@ def generate_charts_and_save():
             
         except Exception as xlwings_error:
             st.warning(f"xlwings failed: {xlwings_error}")
-            st.info("Trying xlsxwriter as fallback...")
+            st.info("Trying openpyxl with charts as fallback...")
             
-            # Try xlsxwriter fallback
+            # Try openpyxl fallback (preserves styles and creates proper charts)
             try:
-                excel_path, json_path = generate_charts_with_xlsxwriter()
+                excel_path, json_path = generate_charts_with_openpyxl()
                 if excel_path and json_path:
-                    st.success("Charts generated successfully using xlsxwriter!")
+                    st.success("Charts generated successfully using openpyxl!")
                     return excel_path, json_path
-            except Exception as xlsxwriter_error:
-                st.warning(f"xlsxwriter also failed: {xlsxwriter_error}")
+            except Exception as openpyxl_error:
+                st.warning(f"openpyxl charts also failed: {openpyxl_error}")
             
             # Final fallback - JSON only
             st.info("Using JSON-only fallback...")

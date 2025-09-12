@@ -1,0 +1,205 @@
+{
+    "metadata": {
+        "report_date": "08 September 2025",
+        "new_period": "09/01/2025 to 09/07/2025",
+        "new_date": "09/07/2025",
+        "generation_timestamp": 1757678867,
+        "total_tasks": 7,
+        "completed_tasks": 7,
+        "extracted_from_b7": true
+    },
+    "main_report_data": {
+        "ticket_status_data": {
+            "New": 0,
+            "Inprogress": 0,
+            "Awaiting": 0,
+            "Internal Solution Provided": 0,
+            "Resolved with Customer": 0,
+            "Closed": 7
+        },
+        "individual_data": {
+            "Abhijeet Nashikkar": 2,
+            "Aditya Anand": 1,
+            "Nishanth Senthilkumar": 0,
+            "Sakthivel s Venkatachalam": 3
+        },
+        "main_chart_data": {
+            "Automic": 7,
+            "Beigene": 0,
+            "BMS": 0,
+            "Collegium": 0,
+            "Azure Imdaas": 0,
+            "Aws Imdaas": 0,
+            "MDM": 0,
+            "Usbu-Pede": 0
+        },
+        "pie1_data": {
+            "SLA Met": 100,
+            "SLA Lost": 0
+        },
+        "pie2_data": {
+            "Priority 1": 0,
+            "Priority 2": 0,
+            "Priority 3": 1,
+            "Priority 4": 6
+        },
+        "all_stats": {
+            "priority": {
+                "Priority 1": 0,
+                "Priority 2": 0,
+                "Priority 3": 1,
+                "Priority 4": 6
+            },
+            "account_count": {
+                "Automic": 7,
+                "Beigene": 0,
+                "BMS": 0,
+                "Collegium": 0,
+                "Azure Imdaas": 0,
+                "Aws Imdaas": 0,
+                "MDM": 0,
+                "Usbu-Pede": 0
+            },
+            "dict_status": {
+                "New": 0,
+                "Inprogress": 0,
+                "Awaiting": 0,
+                "Internal Solution Provided": 0,
+                "Resolved with Customer": 0,
+                "Closed": 7
+            },
+            "ticket_completed": {
+                "Abhijeet Nashikkar": 2,
+                "Aditya Anand": 1,
+                "Nishanth Senthilkumar": 0,
+                "Sakthivel s Venkatachalam": 3
+            },
+            "sla": {
+                "SLA Met": 100,
+                "SLA Lost": 0
+            }
+        }
+    },
+    "daas_queue_data": {
+        "resource_counts": {
+            "Abhijeet": 103,
+            "sakthivel": 45,
+            "Ghiri": 10
+        },
+        "status_counts": {
+            "Resolved with Customer": 145,
+            "Ticket closed": 3,
+            "Awaiting": 5,
+            "Pending Problem Solution": 5
+        },
+        "date_wise_data": {
+            "09/02/2025": {
+                "resources": {
+                    "Abhijeet": 20,
+                    "sakthivel": 11,
+                    "Ghiri": 4
+                },
+                "statuses": {
+                    "Resolved with Customer": 33,
+                    "Ticket closed": 1,
+                    "Awaiting": 1
+                }
+            },
+            "09/03/2025": {
+                "resources": {
+                    "Abhijeet": 33,
+                    "sakthivel": 6,
+                    "Ghiri": 3
+                },
+                "statuses": {
+                    "Resolved with Customer": 38,
+                    "Pending Problem Solution": 2,
+                    "Awaiting": 1,
+                    "Ticket closed": 1
+                }
+            },
+            "09/04/2025": {
+                "resources": {
+                    "sakthivel": 11,
+                    "Abhijeet": 30
+                },
+                "statuses": {
+                    "Ticket closed": 1,
+                    "Awaiting": 3,
+                    "Resolved with Customer": 35,
+                    "Pending Problem Solution": 2
+                }
+            },
+            "09/05/2025": {
+                "resources": {
+                    "Abhijeet": 20,
+                    "Ghiri": 3,
+                    "sakthivel": 17
+                },
+                "statuses": {
+                    "Resolved with Customer": 39,
+                    "Pending Problem Solution": 1
+                }
+            }
+        }
+    },
+    "slide5_data": {
+        "summary_stats": {
+            "total_tickets": 158,
+            "awaiting": 5,
+            "closed": 3,
+            "resolved": 145
+        },
+        "daily_data": {
+            "09/02/2025": {
+                "Abhijeet": 20,
+                "sakthivel": 11,
+                "Ghiri": 4
+            },
+            "09/03/2025": {
+                "Abhijeet": 33,
+                "sakthivel": 6,
+                "Ghiri": 3
+            },
+            "09/04/2025": {
+                "sakthivel": 11,
+                "Abhijeet": 30
+            },
+            "09/05/2025": {
+                "Abhijeet": 20,
+                "Ghiri": 3,
+                "sakthivel": 17
+            }
+        }
+    },
+    "slide6_data": {
+        "column_chart_data": {
+            "August 2nd Week": 180,
+            "August 3rd Week": 200,
+            "August 4th Week": 220,
+            "September 1st Week": 158
+        },
+        "bar_chart_data": {
+            "August 2nd Week": {
+                "awaiting": 8,
+                "closed": 5,
+                "resolved": 187
+            },
+            "August 3rd Week": {
+                "awaiting": 12,
+                "closed": 3,
+                "resolved": 165
+            },
+            "August 4th Week": {
+                "awaiting": 12,
+                "closed": 3,
+                "resolved": 165
+            },
+            "September 1st Week": {
+                "awaiting": 5,
+                "closed": 3,
+                "resolved": 145
+            }
+        }
+    }
+}
