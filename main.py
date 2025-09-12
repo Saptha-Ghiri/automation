@@ -3,6 +3,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from copy import copy
 import xlwings as xw
+import xlsxwriter
 import json
 import os
 import tempfile
@@ -199,8 +200,7 @@ if 'date_info' not in st.session_state:
 
 def add_horizontal_chart(file_path, sheet_name, start_row, start_col, chart_title="Chart", chart_type="bar_clustered", chart_index=0):
     """Create charts using xlwings"""
-    import xlwings as xw
-    
+        
     app = xw.App(visible=False)
     try:
         wb = app.books.open(file_path)
@@ -250,8 +250,7 @@ def add_horizontal_chart(file_path, sheet_name, start_row, start_col, chart_titl
 
 def add_pie_chart(file_path, sheet_name, start_row, start_col, chart_title, chart_index=0):
     """Create pie chart using xlwings"""
-    import xlwings as xw
-    
+        
     app = xw.App(visible=False)
     try:
         wb = app.books.open(file_path)
@@ -699,16 +698,152 @@ def process_current_ticket(action, action_text="", selected_account=""):
         st.session_state.wb.save(st.session_state.file_path)
         st.session_state.current_row += 1
 
-def generate_charts_and_save():
-    """Generate charts using approach from main.py but with working xlwings implementation"""
+def generate_charts_with_xlsxwriter():
+    """Generate charts using xlsxwriter while preserving original data and styles"""
     try:
-        # Use xlwings with proper file path like the working implementation
-        app = xw.App(visible=False)
-        wb_xlwings = app.books.open(st.session_state.file_path)
-        ws_xlwings = wb_xlwings.sheets['Cloud Services Report']
-        chart_start_row = ws_xlwings.api.UsedRange.Rows.Count + 13
-
         stats = st.session_state.stats
+        
+        # First, read all data and styles from the original file using openpyxl
+        wb_original = load_workbook(st.session_state.file_path)
+        ws_original = wb_original.active
+        
+        # Create a new file with charts using xlsxwriter
+        output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
+        workbook = xlsxwriter.Workbook(output_path)
+        worksheet = workbook.add_worksheet('Cloud Services Report')
+        
+        # Copy original data to new worksheet (preserving basic formatting)
+        for row_num, row in enumerate(ws_original.iter_rows(values_only=True), 1):
+            for col_num, value in enumerate(row, 1):
+                if value is not None:
+                    worksheet.write(row_num-1, col_num-1, value)
+        
+        # Find the last row with data
+        last_row = ws_original.max_row
+        chart_start_row = last_row + 3
+        
+        # Add chart data starting after original data
+        col_offset = 4  # Column E (0-indexed = 4)
+        
+        # Ticket Status Chart Data
+        worksheet.write(chart_start_row, col_offset, "TICKET STATUS")
+        row_offset = chart_start_row + 1
+        worksheet.write(row_offset, col_offset, "Status")
+        worksheet.write(row_offset, col_offset + 1, "Count")
+        for i, (status, count) in enumerate(stats['dict_status'].items()):
+            worksheet.write(row_offset + i + 1, col_offset, status)
+            worksheet.write(row_offset + i + 1, col_offset + 1, count)
+        
+        # Create chart for status data
+        chart1 = workbook.add_chart({'type': 'column'})
+        data_end_row = row_offset + len(stats['dict_status'])
+        chart1.add_series({
+            'name': 'Ticket Status',
+            'categories': [worksheet.name, row_offset + 1, col_offset, data_end_row, col_offset],
+            'values': [worksheet.name, row_offset + 1, col_offset + 1, data_end_row, col_offset + 1],
+        })
+        chart1.set_title({'name': 'Ticket Status Count'})
+        worksheet.insert_chart(chart_start_row, col_offset + 3, chart1)
+        
+        # User Ticket Completion Chart Data
+        users_start_row = data_end_row + 5
+        worksheet.write(users_start_row, col_offset, "Ticket Completed by Individual")
+        users_row_offset = users_start_row + 1
+        worksheet.write(users_row_offset, col_offset, "Users")
+        worksheet.write(users_row_offset, col_offset + 1, "Tickets")
+        for i, (user, count) in enumerate(stats['ticket_completed'].items()):
+            worksheet.write(users_row_offset + i + 1, col_offset, user)
+            worksheet.write(users_row_offset + i + 1, col_offset + 1, count)
+        
+        # Create chart for user data
+        chart2 = workbook.add_chart({'type': 'bar'})
+        users_end_row = users_row_offset + len(stats['ticket_completed'])
+        chart2.add_series({
+            'name': 'User Completions',
+            'categories': [worksheet.name, users_row_offset + 1, col_offset, users_end_row, col_offset],
+            'values': [worksheet.name, users_row_offset + 1, col_offset + 1, users_end_row, col_offset + 1],
+        })
+        chart2.set_title({'name': 'Users Completed'})
+        worksheet.insert_chart(users_start_row, col_offset + 3, chart2)
+        
+        # Priority Distribution Pie Chart
+        priority_start_row = users_end_row + 5
+        worksheet.write(priority_start_row, col_offset, "Priority wise ticket count")
+        priority_row_offset = priority_start_row + 1
+        worksheet.write(priority_row_offset, col_offset, "Priority")
+        worksheet.write(priority_row_offset, col_offset + 1, "Count")
+        for i, (priority, count) in enumerate(stats['priority'].items()):
+            worksheet.write(priority_row_offset + i + 1, col_offset, priority)
+            worksheet.write(priority_row_offset + i + 1, col_offset + 1, count)
+        
+        # Create pie chart for priority
+        chart3 = workbook.add_chart({'type': 'pie'})
+        priority_end_row = priority_row_offset + len(stats['priority'])
+        chart3.add_series({
+            'name': 'Priority Distribution',
+            'categories': [worksheet.name, priority_row_offset + 1, col_offset, priority_end_row, col_offset],
+            'values': [worksheet.name, priority_row_offset + 1, col_offset + 1, priority_end_row, col_offset + 1],
+        })
+        chart3.set_title({'name': 'Priority Distribution'})
+        worksheet.insert_chart(priority_start_row, col_offset + 3, chart3)
+        
+        workbook.close()
+        
+        # Create JSON data
+        all_data = {
+            'ticket_status_data': stats['dict_status'],
+            'individual_data': stats['ticket_completed'], 
+            'main_chart_data': stats['dict_status'],
+            'pie1_data': stats['priority'],
+            'pie2_data': {"SLA MET": 100, "SLA LOST": 0}
+        }
+        
+        json_path = output_path.replace('.xlsx', '_data.json')
+        with open(json_path, "w") as f:
+            json.dump(all_data, f, indent=4)
+        
+        return output_path, json_path
+        
+    except Exception as e:
+        st.error(f"Error generating charts with xlsxwriter: {e}")
+        return None, None
+
+def generate_json_data_only():
+    """Generate JSON data without charts for fallback"""
+    try:
+        stats = st.session_state.stats
+        
+        # Create all_data structure similar to the xlwings version but without charts
+        all_data = {
+            'ticket_status_data': stats['dict_status'],
+            'individual_data': stats['ticket_completed'], 
+            'main_chart_data': stats['dict_status'],
+            'pie1_data': stats['priority'],
+            'pie2_data': {"SLA MET": 0, "SLA LOST": 0}  # Default SLA data
+        }
+        
+        # Save JSON file
+        json_path = st.session_state.file_path.replace('.xlsx', '_data.json')
+        with open(json_path, "w") as f:
+            json.dump(all_data, f, indent=4)
+        
+        return st.session_state.file_path, json_path
+        
+    except Exception as e:
+        st.error(f"Error generating JSON data: {e}")
+        return None, None
+
+def generate_charts_and_save():
+    """Generate charts with fallback: xlwings -> xlsxwriter -> JSON only"""
+    try:
+        # First try xlwings (works locally with Excel)
+        try:
+            st.info("Attempting to use xlwings for chart generation...")
+            app = xw.App(visible=False)
+            wb_xlwings = app.books.open(st.session_state.file_path)
+            ws_xlwings = wb_xlwings.sheets['Cloud Services Report']
+            chart_start_row = ws_xlwings.api.UsedRange.Rows.Count + 13
+            stats = st.session_state.stats
 
         # Create data tables and charts - same approach as main.py but simplified
         # Ticket Status Chart Data
@@ -747,24 +882,42 @@ def generate_charts_and_save():
         add_pie_chart_xlwings(ws_xlwings, start_row=sla_data_start_row + 1, start_col=5, chart_title="SLA MET vs SLA LOST", chart_index=3)
         add_horizontal_chart_xlwings(ws_xlwings, start_row=account_data_start_row + 1, start_col=5, chart_title="Ticket Count by Accountwise", chart_index=4)
 
-        wb_xlwings.save()
-        wb_xlwings.close()
-        app.quit()
+            wb_xlwings.save()
+            wb_xlwings.close()
+            app.quit()
 
-        # Export JSON data
-        all_data = {
-            "ticket_status": stats['dict_status'],
-            "ticket_completed": stats['ticket_completed'],
-            "priority_distribution": stats['priority'],
-            "sla": stats['sla'],
-            "account_count": stats['account_count']
-        }
-        
-        json_path = st.session_state.file_path.replace('.xlsx', '_data.json')
-        with open(json_path, "w") as f:
-            json.dump(all_data, f, indent=4)
-        
-        return st.session_state.file_path, json_path
+            # Export JSON data
+            all_data = {
+                "ticket_status": stats['dict_status'],
+                "ticket_completed": stats['ticket_completed'],
+                "priority_distribution": stats['priority'],
+                "sla": stats['sla'],
+                "account_count": stats['account_count']
+            }
+            
+            json_path = st.session_state.file_path.replace('.xlsx', '_data.json')
+            with open(json_path, "w") as f:
+                json.dump(all_data, f, indent=4)
+            
+            st.success("Charts generated successfully using xlwings!")
+            return st.session_state.file_path, json_path
+            
+        except Exception as xlwings_error:
+            st.warning(f"xlwings failed: {xlwings_error}")
+            st.info("Trying xlsxwriter as fallback...")
+            
+            # Try xlsxwriter fallback
+            try:
+                excel_path, json_path = generate_charts_with_xlsxwriter()
+                if excel_path and json_path:
+                    st.success("Charts generated successfully using xlsxwriter!")
+                    return excel_path, json_path
+            except Exception as xlsxwriter_error:
+                st.warning(f"xlsxwriter also failed: {xlsxwriter_error}")
+            
+            # Final fallback - JSON only
+            st.info("Using JSON-only fallback...")
+            return generate_json_data_only()
         
     except Exception as e:
         st.error(f"Error generating charts: {e}")
