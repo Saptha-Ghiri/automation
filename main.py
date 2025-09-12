@@ -845,42 +845,42 @@ def generate_charts_and_save():
             chart_start_row = ws_xlwings.api.UsedRange.Rows.Count + 13
             stats = st.session_state.stats
 
-        # Create data tables and charts - same approach as main.py but simplified
-        # Ticket Status Chart Data
-        ws_xlwings.range((chart_start_row, 5)).value = "TICKET STATUS"
-        status_data = [["Status", "Count"]] + list(stats['dict_status'].items())
-        ws_xlwings.range((chart_start_row + 1, 5)).value = status_data
-        
-        # User Ticket Completion Chart Data
-        users_data_start_row = chart_start_row + len(status_data) +13
-        ws_xlwings.range((users_data_start_row, 5)).value = "Ticket Completed by Individual"
-        users_data = [["Users", "Tickets"]] + list(stats['ticket_completed'].items())
-        ws_xlwings.range((users_data_start_row + 1, 5)).value = users_data
+            # Create data tables and charts - same approach as main.py but simplified
+            # Ticket Status Chart Data
+            ws_xlwings.range((chart_start_row, 5)).value = "TICKET STATUS"
+            status_data = [["Status", "Count"]] + list(stats['dict_status'].items())
+            ws_xlwings.range((chart_start_row + 1, 5)).value = status_data
+            
+            # User Ticket Completion Chart Data
+            users_data_start_row = chart_start_row + len(status_data) +13
+            ws_xlwings.range((users_data_start_row, 5)).value = "Ticket Completed by Individual"
+            users_data = [["Users", "Tickets"]] + list(stats['ticket_completed'].items())
+            ws_xlwings.range((users_data_start_row + 1, 5)).value = users_data
 
-        # Priority Distribution Chart Data
-        priority_data_start_row = users_data_start_row + len(users_data) + 13
-        ws_xlwings.range((priority_data_start_row, 5)).value = "Priority wise ticket count"
-        priority_data = [["Priority", "Count"]] + list(stats['priority'].items())
-        ws_xlwings.range((priority_data_start_row + 1, 5)).value = priority_data
+            # Priority Distribution Chart Data
+            priority_data_start_row = users_data_start_row + len(users_data) + 13
+            ws_xlwings.range((priority_data_start_row, 5)).value = "Priority wise ticket count"
+            priority_data = [["Priority", "Count"]] + list(stats['priority'].items())
+            ws_xlwings.range((priority_data_start_row + 1, 5)).value = priority_data
 
-        # SLA Chart Data
-        sla_data_start_row = priority_data_start_row + len(priority_data) + 13
-        ws_xlwings.range((sla_data_start_row, 5)).value = "SLA"
-        sla_data = [["SLA Met", "SLA Lost"]] + [[100, 0]]
-        ws_xlwings.range((sla_data_start_row + 1, 5)).value = sla_data
+            # SLA Chart Data
+            sla_data_start_row = priority_data_start_row + len(priority_data) + 13
+            ws_xlwings.range((sla_data_start_row, 5)).value = "SLA"
+            sla_data = [["SLA Met", "SLA Lost"]] + [[100, 0]]
+            ws_xlwings.range((sla_data_start_row + 1, 5)).value = sla_data
 
-        # Account Count Chart Data
-        account_data_start_row = sla_data_start_row + len(sla_data) + 13
-        ws_xlwings.range((account_data_start_row, 5)).value = "Ticket Count by Accountwise"
-        account_data = [["Account", "Tickets"]] + list(stats['account_count'].items())
-        ws_xlwings.range((account_data_start_row + 1, 5)).value = account_data
-        
-        # Create charts using the working chart functions
-        add_horizontal_chart_xlwings(ws_xlwings, start_row=chart_start_row + 1, start_col=5, chart_title="Ticket Status Count", chart_index=0)
-        add_horizontal_chart_xlwings(ws_xlwings, start_row=users_data_start_row + 1, start_col=5, chart_title="Users Completed", chart_index=1)
-        add_pie_chart_xlwings(ws_xlwings, start_row=priority_data_start_row + 1, start_col=5, chart_title="Priority Distribution", chart_index=2)
-        add_pie_chart_xlwings(ws_xlwings, start_row=sla_data_start_row + 1, start_col=5, chart_title="SLA MET vs SLA LOST", chart_index=3)
-        add_horizontal_chart_xlwings(ws_xlwings, start_row=account_data_start_row + 1, start_col=5, chart_title="Ticket Count by Accountwise", chart_index=4)
+            # Account Count Chart Data
+            account_data_start_row = sla_data_start_row + len(sla_data) + 13
+            ws_xlwings.range((account_data_start_row, 5)).value = "Ticket Count by Accountwise"
+            account_data = [["Account", "Tickets"]] + list(stats['account_count'].items())
+            ws_xlwings.range((account_data_start_row + 1, 5)).value = account_data
+            
+            # Create charts using the working chart functions
+            add_horizontal_chart_xlwings(ws_xlwings, start_row=chart_start_row + 1, start_col=5, chart_title="Ticket Status Count", chart_index=0)
+            add_horizontal_chart_xlwings(ws_xlwings, start_row=users_data_start_row + 1, start_col=5, chart_title="Users Completed", chart_index=1)
+            add_pie_chart_xlwings(ws_xlwings, start_row=priority_data_start_row + 1, start_col=5, chart_title="Priority Distribution", chart_index=2)
+            add_pie_chart_xlwings(ws_xlwings, start_row=sla_data_start_row + 1, start_col=5, chart_title="SLA MET vs SLA LOST", chart_index=3)
+            add_horizontal_chart_xlwings(ws_xlwings, start_row=account_data_start_row + 1, start_col=5, chart_title="Ticket Count by Accountwise", chart_index=4)
 
             wb_xlwings.save()
             wb_xlwings.close()
