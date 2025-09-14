@@ -1354,21 +1354,29 @@ def main():
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    action_text = st.text_input("Enter Action text:")
+                    action_text = st.text_input("Enter Action text:", placeholder="Required for update...")
                 with col2:
                     account_options = list(st.session_state.stats['account_count'].keys())
                     selected_account = st.selectbox("Select Account:", account_options)
                 
-                delete_row = st.form_submit_button(label="Delete this row")
-                update_row = st.form_submit_button(label="Update with details")
+                # Side by side buttons
+                button_col1, button_col2 = st.columns(2)
+                with button_col1:
+                    delete_row = st.form_submit_button("🗑️ Delete Row", use_container_width=True)
+                with button_col2:
+                    update_row = st.form_submit_button("✅ Update Row", use_container_width=True)
 
             if delete_row:
                 process_current_ticket("delete")
                 st.rerun()
 
             if update_row:
-                process_current_ticket("update", action_text, selected_account)
-                st.rerun()
+                # Validate action text before processing
+                if not action_text or not action_text.strip():
+                    st.error("❌ Action text is required for updating the row!")
+                else:
+                    process_current_ticket("update", action_text, selected_account)
+                    st.rerun()
         else:
             # All tickets processed
             st.session_state.processing_complete = True
@@ -1434,22 +1442,38 @@ def main():
             st.markdown("Generate Excel file with charts and visualizations")
             
             if st.button("🚀 Generate Charts & Excel", type="primary", use_container_width=True):
-                with st.spinner("🔄 Generating charts and preparing files..."):
+                # Create modal dialog using popover
+                with st.expander("📊 Generating Excel Report...", expanded=True):
                     progress_bar = st.progress(0)
                     status_text = st.empty()
+                    
+                    status_text.text("🔄 Starting chart generation...")
+                    progress_bar.progress(10)
+                    time.sleep(0.5)
                     
                     status_text.text("📊 Creating charts...")
                     progress_bar.progress(30)
                     excel_path, json_path = generate_charts_and_save()
                     
-                    progress_bar.progress(100)
-                    status_text.text("✅ Reports generated successfully!")
-                
-                if excel_path and json_path:
-                    st.success("📊 Charts generated successfully!")
+                    progress_bar.progress(80)
+                    status_text.text("💾 Saving files...")
+                    time.sleep(0.5)
                     
-                    # Provide download buttons
-                    with open(excel_path, "rb") as file:
+                    progress_bar.progress(100)
+                    status_text.text("✅ Excel report generated successfully!")
+                
+                # Store in session state for persistence
+                if excel_path and json_path:
+                    st.session_state.excel_generated = True
+                    st.session_state.excel_path = excel_path
+                    st.session_state.json_path = json_path
+                    st.success("📊 Charts generated successfully!")
+                    st.rerun()
+            
+            # Show download buttons if Excel is generated
+            if st.session_state.get('excel_generated', False) and st.session_state.get('excel_path'):
+                try:
+                    with open(st.session_state.excel_path, "rb") as file:
                         st.download_button(
                             label="📥 Download Excel Report",
                             data=file.read(),
@@ -1458,7 +1482,7 @@ def main():
                             use_container_width=True
                         )
                     
-                    with open(json_path, "rb") as file:
+                    with open(st.session_state.json_path, "rb") as file:
                         st.download_button(
                             label="📄 Download JSON Data",
                             data=file.read(),
@@ -1466,6 +1490,8 @@ def main():
                             mime="application/json",
                             use_container_width=True
                         )
+                except FileNotFoundError:
+                    st.warning("Files not found. Please regenerate.")
         
         with col2:
             st.markdown("#### 🔗 Combined JSON")
@@ -1473,69 +1499,118 @@ def main():
             
             if st.button("🔗 Generate Combined JSON", type="primary", use_container_width=True):
                 if st.session_state.temp_daas_processed:
-                    with st.spinner("🔄 Creating combined JSON data..."):
+                    with st.expander("🔗 Generating Combined JSON...", expanded=True):
                         progress_bar = st.progress(0)
                         status_text = st.empty()
+                        
+                        status_text.text("🔄 Starting JSON generation...")
+                        progress_bar.progress(20)
+                        time.sleep(0.3)
                         
                         status_text.text("🔗 Combining data sources...")
                         progress_bar.progress(50)
                         json_path, json_data = create_combined_json_data()
                         
+                        progress_bar.progress(80)
+                        status_text.text("💾 Saving combined JSON...")
+                        time.sleep(0.3)
+                        
                         progress_bar.progress(100)
                         status_text.text("✅ Combined JSON created!")
                     
+                    # Store in session state for persistence and PPT generation
                     if json_path and json_data:
+                        st.session_state.combined_json_generated = True
+                        st.session_state.combined_json_path = json_path
+                        st.session_state.combined_json_data = json_data
                         st.success("🔗 Combined JSON created successfully!")
-                        
-                        with open(json_path, "rb") as file:
-                            st.download_button(
-                                label="📥 Download Combined JSON",
-                                data=file.read(),
-                                file_name=f"combined_data_{int(time.time())}.json",
-                                mime="application/json",
-                                use_container_width=True
-                            )
-                        
-                        # Show JSON preview in an expandable section
-                        with st.expander("🔍 Preview JSON Structure"):
-                            st.json(json_data['metadata'])
+                        st.rerun()
                 else:
                     st.error("❌ Please process DaaS queue file first")
+            
+            # Show download button if Combined JSON is generated
+            if st.session_state.get('combined_json_generated', False) and st.session_state.get('combined_json_path'):
+                try:
+                    with open(st.session_state.combined_json_path, "rb") as file:
+                        st.download_button(
+                            label="📥 Download Combined JSON",
+                            data=file.read(),
+                            file_name=f"combined_data_{int(time.time())}.json",
+                            mime="application/json",
+                            use_container_width=True
+                        )
+                    
+                    # Show JSON preview in an expandable section
+                    with st.expander("🔍 Preview JSON Structure"):
+                        st.json(st.session_state.combined_json_data['metadata'])
+                except FileNotFoundError:
+                    st.warning("JSON file not found. Please regenerate.")
         
         with col3:
             st.markdown("#### 🎯 PowerPoint Report")
             st.markdown("Generate final presentation from combined data")
             
-            # Check if combined JSON exists
-            if hasattr(st.session_state, 'combined_json_data'):
-                if st.button("🎯 Generate PowerPoint", type="primary", use_container_width=True):
-                    with st.spinner("🎯 Generating PowerPoint presentation..."):
+            if st.button("🎯 Generate PowerPoint", type="primary", use_container_width=True):
+                # Auto-generate JSON if not already generated
+                if not st.session_state.get('combined_json_generated', False):
+                    if st.session_state.temp_daas_processed:
+                        with st.expander("🔗 Auto-generating Combined JSON...", expanded=True):
+                            progress_bar = st.progress(0)
+                            status_text = st.empty()
+                            
+                            status_text.text("🔄 Auto-generating JSON for PPT...")
+                            progress_bar.progress(25)
+                            json_path, json_data = create_combined_json_data()
+                            
+                            if json_path and json_data:
+                                st.session_state.combined_json_generated = True
+                                st.session_state.combined_json_path = json_path
+                                st.session_state.combined_json_data = json_data
+                                progress_bar.progress(50)
+                                status_text.text("✅ JSON auto-generated successfully!")
+                    else:
+                        st.error("❌ Please process DaaS queue file first")
+                        st.stop()
+                
+                # Generate PowerPoint
+                if st.session_state.get('combined_json_data'):
+                    with st.expander("🎯 Generating PowerPoint...", expanded=True):
                         progress_bar = st.progress(0)
                         status_text = st.empty()
                         
                         status_text.text("🎯 Creating PowerPoint slides...")
                         progress_bar.progress(30)
+                        time.sleep(0.5)
+                        
                         ppt_path = generate_ppt_from_json(st.session_state.combined_json_data)
+                        
+                        progress_bar.progress(80)
+                        status_text.text("💾 Saving PowerPoint...")
+                        time.sleep(0.5)
                         
                         progress_bar.progress(100)
                         status_text.text("✅ PowerPoint generated!")
                     
+                    # Store in session state for persistence
                     if ppt_path and os.path.exists(ppt_path):
-                        st.success("🎯 PowerPoint report generated successfully!")
                         st.session_state.ppt_generated = True
-                        
-                        with open(ppt_path, "rb") as file:
-                            st.download_button(
-                                label="📥 Download PowerPoint",
-                                data=file.read(),
-                                file_name=f"final_report_{int(time.time())}.pptx",
-                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                use_container_width=True
-                            )
-            else:
-                st.info("📝 Generate Combined JSON first")
-                if st.button("📝 Generate Combined JSON First", use_container_width=True):
-                    st.rerun()
+                        st.session_state.ppt_path = ppt_path
+                        st.success("🎯 PowerPoint report generated successfully!")
+                        st.rerun()
+            
+            # Show download button if PPT is generated
+            if st.session_state.get('ppt_generated', False) and st.session_state.get('ppt_path'):
+                try:
+                    with open(st.session_state.ppt_path, "rb") as file:
+                        st.download_button(
+                            label="📥 Download PowerPoint",
+                            data=file.read(),
+                            file_name=f"final_report_{int(time.time())}.pptx",
+                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            use_container_width=True
+                        )
+                except FileNotFoundError:
+                    st.warning("PowerPoint file not found. Please regenerate.")
         
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -1546,6 +1621,25 @@ def main():
             if st.button("🔄 Process New Files", type="secondary", use_container_width=True):
                 # Cleanup temp files before reset
                 cleanup_temp_files()
+                
+                # Cleanup generated files
+                if st.session_state.get('excel_path') and os.path.exists(st.session_state.excel_path):
+                    try:
+                        os.remove(st.session_state.excel_path)
+                    except:
+                        pass
+                        
+                if st.session_state.get('combined_json_path') and os.path.exists(st.session_state.combined_json_path):
+                    try:
+                        os.remove(st.session_state.combined_json_path)
+                    except:
+                        pass
+                        
+                if st.session_state.get('ppt_path') and os.path.exists(st.session_state.ppt_path):
+                    try:
+                        os.remove(st.session_state.ppt_path)
+                    except:
+                        pass
                 
                 # Reset session state
                 for key in list(st.session_state.keys()):
