@@ -947,7 +947,7 @@ def generate_charts_with_openpyxl():
         chart5.overlap = 0
         chart5.width = 15
         chart5.height = 10
-        ws.add_chart(chart5, f"G{account_start_row}")
+        ws.add_chart(chart5, f"H{account_start_row}")
         
         # Save the file with preserved formatting and new charts
         output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
@@ -1349,7 +1349,7 @@ def main():
             # Display current ticket 
             with st.form(key=f"form_{current_ticket['row']}"):
                 st.subheader(f"Current Row: {current_ticket['row']}")
-                st.write(f"**Ticket Status**: {status_str if current_ticket['status'] else current_ticket['status']}")
+                st.write(f"**Ticket Status**: {current_ticket['status'] if current_ticket['status'] else status_str}")
                 st.write(f"**User**: {current_ticket['user']}")
                 st.write(f"**Subject**: {current_ticket['subject']}")
 
