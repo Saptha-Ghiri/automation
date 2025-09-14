@@ -701,12 +701,46 @@ def update_all_subtotals_and_total():
     
     return total_tickets
 
+def preserve_status_when_deleting_first_ticket(row):
+    """Preserve status in the next ticket when deleting the first ticket of a section"""
+    ws = st.session_state.ws
+    
+    # Get the status from the current row (column 2)
+    current_status = ws.cell(row=row, column=2).value
+    
+    # If this row has a status, we need to preserve it
+    if current_status and str(current_status).strip():
+        # Find the next ticket row in the same section
+        next_row = row + 1
+        max_row = ws.max_row
+        
+        while next_row <= max_row:
+            next_cell_b = ws.cell(row=next_row, column=2).value
+            next_cell_c = ws.cell(row=next_row, column=3).value
+            
+            # If we hit a subtotal or total, stop
+            if (next_cell_b and str(next_cell_b).strip() in ["Subtotal", "Total"]) or \
+               (next_cell_c and str(next_cell_c).strip() == "Subtotal"):
+                break
+            
+            # If this is a ticket row (has case number in column 3)
+            if next_cell_c and str(next_cell_c).strip() and str(next_cell_c).strip() != "Subtotal":
+                # Move the status to this row
+                ws.cell(row=next_row, column=2, value=current_status)
+                st.info(f"📋 Status '{current_status}' preserved in row {next_row}")
+                break
+            
+            next_row += 1
+
 def process_current_ticket(action, action_text="", selected_account=""):
     """Process ticket using simplified logic from main.py"""
     ws = st.session_state.ws
     row = st.session_state.current_row
     
     if action == "delete":
+        # Before deleting, check if this row has a status that needs to be preserved
+        preserve_status_when_deleting_first_ticket(row)
+        
         # Check if we need to cleanup empty section BEFORE deleting the row
         section_cleaned = check_and_cleanup_empty_section_after_delete(row)
         
@@ -947,7 +981,7 @@ def generate_charts_with_openpyxl():
         chart5.overlap = 0
         chart5.width = 15
         chart5.height = 10
-        ws.add_chart(chart5, f"H{account_start_row}")
+        ws.add_chart(chart5, f"G{account_start_row}")
         
         # Save the file with preserved formatting and new charts
         output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
