@@ -740,9 +740,10 @@ def generate_charts_with_openpyxl():
         # Add chart data with preserved styles
         from openpyxl.chart import BarChart, PieChart, Reference
         from openpyxl.chart.label import DataLabelList
-        from openpyxl.drawing.colors import ColorChoice, RGBColor
+        from openpyxl.drawing.colors import ColorChoice
         from openpyxl.chart.shapes import GraphicalProperties
-        from openpyxl.drawing.fill import SolidColorFillProperties, PatternFillProperties
+        from openpyxl.drawing.fill import SolidColorFillProperties
+        from openpyxl.styles.colors import Color
         
         # 1. Ticket Status Chart Data
         ws.cell(row=chart_start_row, column=col_offset, value="TICKET STATUS")
@@ -771,10 +772,9 @@ def generate_charts_with_openpyxl():
         # Add gap width and light dark blue color styling
         for series in chart1.series:
             series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color (similar to Excel's accent1 color)
-            fill_properties = SolidColorFillProperties()
-            fill_properties.rgb = RGBColor("5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=fill_properties.rgb)
+            # Set light dark blue color using ColorChoice with RGB hex value
+            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
+            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
         
         # Set gap width to match xlwings behavior (200% gap width)
         chart1.gapWidth = 200
@@ -813,10 +813,9 @@ def generate_charts_with_openpyxl():
         # Add gap width and light dark blue color styling
         for series in chart2.series:
             series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color
-            fill_properties = SolidColorFillProperties()
-            fill_properties.rgb = RGBColor("5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=fill_properties.rgb)
+            # Set light dark blue color using ColorChoice with RGB hex value
+            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
+            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
         
         chart2.gapWidth = 200
         chart2.overlap = 0
@@ -897,10 +896,9 @@ def generate_charts_with_openpyxl():
         # Add gap width and light dark blue color styling
         for series in chart5.series:
             series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color
-            fill_properties = SolidColorFillProperties()
-            fill_properties.rgb = RGBColor("5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=fill_properties.rgb)
+            # Set light dark blue color using ColorChoice with RGB hex value
+            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
+            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
         
         chart5.gapWidth = 200
         chart5.overlap = 0
