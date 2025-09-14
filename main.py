@@ -537,6 +537,26 @@ def process_uploaded_file(uploaded_file):
     st.session_state.wb.save(st.session_state.file_path)
     st.session_state.file_processed = True
 
+def find_section_status(current_row):
+    """Find the status that applies to the current row by looking backwards in the section"""
+    ws = st.session_state.ws
+    
+    # Look backwards from current row to find the status for this section
+    for check_row in range(current_row, 12, -1):  # Go back to row 13 (start of tickets)
+        cell_b = ws.cell(row=check_row, column=2).value
+        cell_c = ws.cell(row=check_row, column=3).value
+        
+        # If we find a status (cell B has content and it's not "Total" or "Subtotal")
+        if cell_b and str(cell_b).strip():
+            cell_b_str = str(cell_b).strip()
+            if cell_b_str not in ["Total", "Subtotal"]:
+                # Make sure this isn't a subtotal row (check column C)
+                if not (cell_c and str(cell_c).strip() == "Subtotal"):
+                    return cell_b_str
+    
+    # If no status found, return None
+    return None
+
 def get_current_ticket_for_processing():
     """Get current ticket details using simplified logic from main.py"""
     ws = st.session_state.ws
@@ -559,6 +579,11 @@ def get_current_ticket_for_processing():
             user = ws.cell(row=row, column=5).value  
             priority = ws.cell(row=row, column=12).value
             subject = ws.cell(row=row, column=7).value
+            
+            # If this row doesn't have a status, find the section status
+            if not status or not str(status).strip():
+                status = find_section_status(row)
+            
             return {
                 'row': row,
                 'status': safe_str(status),
