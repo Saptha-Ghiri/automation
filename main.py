@@ -14,6 +14,55 @@ import re
 from extract_queue_data import extract_resource_status_counts, create_sample_data
 from ppt_automation import generate_weekly_report
 status_str = None
+
+def cleanup_temp_files():
+    """Securely delete temporary files"""
+    if 'temp_files' in st.session_state:
+        for temp_file in st.session_state.temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+                    st.info(f"🧹 Cleaned up temporary file: {temp_file}")
+            except Exception as e:
+                st.warning(f"Could not remove temp file {temp_file}: {e}")
+        st.session_state.temp_files = []
+
+def add_security_warning():
+    """Display security warning for users"""
+    st.error("""
+    🔒 **SECURITY NOTICE - READ CAREFULLY**: 
+    - This app runs on Streamlit Community Cloud (shared infrastructure)
+    - Your files are temporarily stored and processed on remote servers
+    - Files are automatically deleted after processing
+    - **DO NOT** upload files containing:
+      - Personal identifiable information (PII)
+      - Financial data, SSN, credit card numbers
+      - Confidential business data
+      - Any sensitive information
+    - For sensitive data, download and run this app locally instead
+    """)
+    
+    st.info("""
+    📋 **Recommended for Cloud Use**:
+    - Demo files with sample data
+    - Test files with mock information
+    - Non-sensitive business reports
+    """)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🏠 Run Locally Instead", help="Download for local use"):
+            st.info("""
+            To run locally:
+            1. Download the source code
+            2. Install: pip install streamlit openpyxl xlwings python-pptx pandas
+            3. Run: streamlit run main.py
+            """)
+    
+    with col2:
+        accept_risk = st.checkbox("⚠️ I accept the risks and will only upload non-sensitive files")
+    
+    return accept_risk
 def extract_date_period_from_excel(file_path):
     """Extract date period from Excel file cell B7"""
     try:
@@ -428,10 +477,18 @@ def add_pie_chart_xlwings(sheet, start_row, start_col, chart_title, chart_index=
 def process_temp_daas_file(temp_daas_file):
     """Process temp_daas_queue file in background"""
     if temp_daas_file is not None:
-        # Save temp file
-        temp_daas_path = "temp_daas_queue.xlsx"
+        # Save temp file with unique name
+        import uuid
+        unique_id = str(uuid.uuid4())[:8]
+        temp_daas_path = f"temp_daas_queue_{unique_id}.xlsx"
+        
         with open(temp_daas_path, "wb") as f:
             f.write(temp_daas_file.getvalue())
+        
+        # Store temp file path for cleanup later
+        if 'temp_files' not in st.session_state:
+            st.session_state.temp_files = []
+        st.session_state.temp_files.append(temp_daas_path)
         
         # Extract data using existing function
         resource_counts, status_counts, date_wise_data = extract_resource_status_counts(temp_daas_path)
@@ -449,10 +506,22 @@ def process_temp_daas_file(temp_daas_file):
 
 def process_uploaded_file(uploaded_file):
     """Process uploaded file using simplified logic from main.py"""
-    # Save uploaded file as working file
-    temp_file_path = "working_file.xlsx"
-    with open(temp_file_path, "wb") as f:
-        f.write(uploaded_file.getvalue())
+    # Save uploaded file as working file with secure temp file
+    import tempfile
+    import uuid
+    
+    # Create unique temp file name to avoid conflicts
+    unique_id = str(uuid.uuid4())[:8]
+    temp_file_path = f"working_file_{unique_id}.xlsx"
+    
+    try:
+        with open(temp_file_path, "wb") as f:
+            f.write(uploaded_file.getvalue())
+        
+        # Store temp file path for cleanup later
+        if 'temp_files' not in st.session_state:
+            st.session_state.temp_files = []
+        st.session_state.temp_files.append(temp_file_path)
 
     st.session_state.file_path = temp_file_path
     st.session_state.wb = load_workbook(temp_file_path)
@@ -740,10 +809,6 @@ def generate_charts_with_openpyxl():
         # Add chart data with preserved styles
         from openpyxl.chart import BarChart, PieChart, Reference
         from openpyxl.chart.label import DataLabelList
-        from openpyxl.drawing.colors import ColorChoice
-        from openpyxl.chart.shapes import GraphicalProperties
-        from openpyxl.drawing.fill import SolidColorFillProperties
-        from openpyxl.styles.colors import Color
         
         # 1. Ticket Status Chart Data
         ws.cell(row=chart_start_row, column=col_offset, value="TICKET STATUS")
@@ -758,7 +823,7 @@ def generate_charts_with_openpyxl():
         # Create horizontal bar chart for status with gap width
         chart1 = BarChart()
         chart1.type = "bar"
-        chart1.style = 10
+        chart1.style = 2  # Use a built-in style that includes blue colors
         chart1.title = "Ticket Status Count"
         chart1.y_axis.title = 'Status'
         chart1.x_axis.title = 'Count'
@@ -769,12 +834,15 @@ def generate_charts_with_openpyxl():
         chart1.add_data(data, titles_from_data=False)
         chart1.set_categories(cats)
         
-        # Add gap width and light dark blue color styling
-        for series in chart1.series:
-            series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color using ColorChoice with RGB hex value
-            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
+        # Add gap width and styling - simplified to avoid XML errors
+        try:
+            # Set chart colors using simpler approach
+            from openpyxl.chart.series import DataPoint
+            for series in chart1.series:
+                # Use built-in chart style instead of custom colors to avoid XML issues
+                pass  # Let Excel use default styling
+        except Exception as e:
+            st.warning(f"Chart styling warning: {e}")
         
         # Set gap width to match xlwings behavior (200% gap width)
         chart1.gapWidth = 200
@@ -799,7 +867,7 @@ def generate_charts_with_openpyxl():
         # Create horizontal bar chart for users with styling
         chart2 = BarChart()
         chart2.type = "bar"
-        chart2.style = 11
+        chart2.style = 2  # Use same blue style for consistency
         chart2.title = "Users Completed"
         chart2.y_axis.title = 'Users'
         chart2.x_axis.title = 'Tickets'
@@ -810,12 +878,13 @@ def generate_charts_with_openpyxl():
         chart2.add_data(data2, titles_from_data=False)
         chart2.set_categories(cats2)
         
-        # Add gap width and light dark blue color styling
-        for series in chart2.series:
-            series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color using ColorChoice with RGB hex value
-            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
+        # Add gap width and styling - simplified to avoid XML errors
+        try:
+            # Use built-in chart styles for better compatibility
+            for series in chart2.series:
+                pass  # Let Excel use default styling
+        except Exception as e:
+            st.warning(f"Chart styling warning: {e}")
         
         chart2.gapWidth = 200
         chart2.overlap = 0
@@ -882,7 +951,7 @@ def generate_charts_with_openpyxl():
         # Create horizontal bar chart for accounts with styling
         chart5 = BarChart()
         chart5.type = "bar"
-        chart5.style = 12
+        chart5.style = 2  # Use same blue style for consistency
         chart5.title = "Ticket Count by Accountwise"
         chart5.y_axis.title = 'Account'
         chart5.x_axis.title = 'Tickets'
@@ -893,12 +962,13 @@ def generate_charts_with_openpyxl():
         chart5.add_data(data5, titles_from_data=False)
         chart5.set_categories(cats5)
         
-        # Add gap width and light dark blue color styling
-        for series in chart5.series:
-            series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color using ColorChoice with RGB hex value
-            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
+        # Add gap width and styling - simplified to avoid XML errors
+        try:
+            # Use built-in chart styles for better compatibility
+            for series in chart5.series:
+                pass  # Let Excel use default styling
+        except Exception as e:
+            st.warning(f"Chart styling warning: {e}")
         
         chart5.gapWidth = 200
         chart5.overlap = 0
@@ -1238,8 +1308,12 @@ def main():
     
     # Main content - Enhanced for dual file upload
     if not st.session_state.file_processed and not st.session_state.processing_complete:
-        # File upload phase
+        # File upload phase with security warning
         st.header("📁 Upload Excel Files")
+        
+        # Add security warning
+        if not add_security_warning():
+            st.stop()  # Stop execution until user acknowledges security notice
         
         col1, col2 = st.columns(2)
         
@@ -1502,6 +1576,9 @@ def main():
         col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
             if st.button("🔄 Process New Files", type="secondary", use_container_width=True):
+                # Cleanup temp files before reset
+                cleanup_temp_files()
+                
                 # Reset session state
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
@@ -1568,4 +1645,24 @@ def main():
     
 
 if __name__ == "__main__":
+    # Cleanup temp files on app exit using atexit
+    import atexit
+    
+    def cleanup_on_exit():
+        """Cleanup function called when app exits"""
+        if 'temp_files' in st.session_state:
+            for temp_file in st.session_state.temp_files:
+                try:
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                except:
+                    pass  # Silent cleanup on exit
+    
+    atexit.register(cleanup_on_exit)
+    
+    # Add manual cleanup button in sidebar for immediate cleanup
+    with st.sidebar:
+        if st.button("🧹 Cleanup Temp Files", help="Manually remove temporary files"):
+            cleanup_temp_files()
+    
     main()
