@@ -558,12 +558,13 @@ def get_current_ticket_for_processing():
             status = ws.cell(row=row, column=2).value
             user = ws.cell(row=row, column=5).value  
             priority = ws.cell(row=row, column=12).value
-            
+            subject = ws.cell(row=row, column=7).value
             return {
                 'row': row,
                 'status': safe_str(status),
                 'user': safe_str(user),
-                'priority': safe_str(priority)
+                'subject': safe_str(subject),
+                
             }
     else:
         return None
@@ -820,10 +821,10 @@ def generate_charts_with_openpyxl():
         chart1.gapWidth = 200
         chart1.overlap = 0
         
-        # Position chart with proper spacing
+        # Position chart with proper spacing - moved to column G
         chart1.width = 15
         chart1.height = 10
-        ws.add_chart(chart1, f"H{chart_start_row}")
+        ws.add_chart(chart1, f"G{chart_start_row}")
         
         # 2. User Ticket Completion Chart Data - Add more spacing between charts
         users_start_row = data_end_row + 15  # Increased spacing from 5 to 15
@@ -862,7 +863,7 @@ def generate_charts_with_openpyxl():
         chart2.overlap = 0
         chart2.width = 15
         chart2.height = 10
-        ws.add_chart(chart2, f"H{users_start_row}")
+        ws.add_chart(chart2, f"G{users_start_row}")
         
         # 3. Priority Distribution Pie Chart - Add more spacing
         priority_start_row = users_end_row + 15  # Increased spacing from 5 to 15
@@ -885,7 +886,7 @@ def generate_charts_with_openpyxl():
         chart3.set_categories(cats3)
         chart3.width = 15
         chart3.height = 10
-        ws.add_chart(chart3, f"H{priority_start_row}")
+        ws.add_chart(chart3, f"G{priority_start_row}")
         
         # 4. SLA Chart Data - Add more spacing
         sla_start_row = priority_end_row + 15  # Increased spacing from 5 to 15
@@ -907,7 +908,7 @@ def generate_charts_with_openpyxl():
         chart4.set_categories(cats4)
         chart4.width = 15
         chart4.height = 10
-        ws.add_chart(chart4, f"H{sla_start_row}")
+        ws.add_chart(chart4, f"G{sla_start_row}")
         
         # 5. Account Count Chart Data - Add more spacing
         account_start_row = sla_row_offset + 18  # Increased spacing from 8 to 18
@@ -946,7 +947,7 @@ def generate_charts_with_openpyxl():
         chart5.overlap = 0
         chart5.width = 15
         chart5.height = 10
-        ws.add_chart(chart5, f"H{account_start_row}")
+        ws.add_chart(chart5, f"G{account_start_row}")
         
         # Save the file with preserved formatting and new charts
         output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
@@ -1348,9 +1349,9 @@ def main():
             # Display current ticket 
             with st.form(key=f"form_{current_ticket['row']}"):
                 st.subheader(f"Current Row: {current_ticket['row']}")
-                st.write(f"**Ticket Status**: {current_ticket['status']}")
+                st.write(f"**Ticket Status**: {status_str if current_ticket['status'] else current_ticket['status']}")
                 st.write(f"**User**: {current_ticket['user']}")
-                st.write(f"**Priority**: {current_ticket['priority']}")
+                st.write(f"**Subject**: {current_ticket['subject']}")
 
                 col1, col2 = st.columns(2)
                 with col1:
