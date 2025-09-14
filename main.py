@@ -521,6 +521,7 @@ def get_current_ticket_for_processing():
             status = ws.cell(row=row, column=2).value
             user = ws.cell(row=row, column=5).value  
             priority = ws.cell(row=row, column=12).value
+            subject = ws.cell(row=row, column=7).value
             
             # Initialize status_str in session state if it doesn't exist
             if 'status_str' not in st.session_state:
@@ -538,7 +539,8 @@ def get_current_ticket_for_processing():
                 'row': row,
                 'status': st.session_state.status_str,  # Use status_str instead of raw status
                 'user': safe_str(user),
-                'priority': safe_str(priority)
+                'priority': safe_str(priority), 
+                'subject': safe_str(subject)
             }
     else:
         return None
@@ -1378,16 +1380,18 @@ def main():
                 st.write(f"**Ticket Status**: {current_ticket['status']}")
                 st.write(f"**User**: {current_ticket['user']}")
                 st.write(f"**Priority**: {current_ticket['priority']}")
-
+                st.write(f"**Subject**: {current_ticket['subject']}")       
                 col1, col2 = st.columns(2)
                 with col1:
                     action_text = st.text_input("Enter Action text:")
                 with col2:
                     account_options = list(st.session_state.stats['account_count'].keys())
                     selected_account = st.selectbox("Select Account:", account_options)
-                
-                delete_row = st.form_submit_button(label="Delete this row")
-                update_row = st.form_submit_button(label="Update with details")
+                col1, col2 = st.columns(2)
+                with col1:
+                    update_row = st.form_submit_button(label="✅ Update")
+                with col2:
+                    delete_row = st.form_submit_button(label="🗑️ Delete")
 
             if delete_row:
                 process_current_ticket("delete")
