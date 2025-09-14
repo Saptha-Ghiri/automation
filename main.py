@@ -741,6 +741,9 @@ def generate_charts_with_openpyxl():
         from openpyxl.chart import BarChart, PieChart, Reference
         from openpyxl.chart.label import DataLabelList
         from openpyxl.drawing.colors import ColorChoice
+        from openpyxl.chart.shapes import GraphicalProperties
+        from openpyxl.drawing.fill import SolidColorFillProperties
+        from openpyxl.drawing.colors import SchemeColor
         
         # 1. Ticket Status Chart Data
         ws.cell(row=chart_start_row, column=col_offset, value="TICKET STATUS")
@@ -752,7 +755,7 @@ def generate_charts_with_openpyxl():
             ws.cell(row=row_offset + i + 1, column=col_offset, value=status)
             ws.cell(row=row_offset + i + 1, column=col_offset + 1, value=count)
         
-        # Create horizontal bar chart for status
+        # Create horizontal bar chart for status with gap width
         chart1 = BarChart()
         chart1.type = "bar"
         chart1.style = 10
@@ -766,13 +769,23 @@ def generate_charts_with_openpyxl():
         chart1.add_data(data, titles_from_data=False)
         chart1.set_categories(cats)
         
-        # Position chart
+        # Add gap width and styling like xlwings
+        for series in chart1.series:
+            series.graphicalProperties = GraphicalProperties()
+            series.graphicalProperties.solidFill = SolidColorFillProperties()
+            series.graphicalProperties.solidFill.schemeClr = SchemeColor(val="accent1")  # Light dark blue
+        
+        # Set gap width to match xlwings behavior (200% gap width)
+        chart1.gapWidth = 200
+        chart1.overlap = 0
+        
+        # Position chart with proper spacing
         chart1.width = 15
         chart1.height = 10
         ws.add_chart(chart1, f"H{chart_start_row}")
         
-        # 2. User Ticket Completion Chart Data
-        users_start_row = data_end_row + 5
+        # 2. User Ticket Completion Chart Data - Add more spacing between charts
+        users_start_row = data_end_row + 15  # Increased spacing from 5 to 15
         ws.cell(row=users_start_row, column=col_offset, value="Ticket Completed by Individual")
         users_row_offset = users_start_row + 1
         ws.cell(row=users_row_offset, column=col_offset, value="Users")
@@ -782,7 +795,7 @@ def generate_charts_with_openpyxl():
             ws.cell(row=users_row_offset + i + 1, column=col_offset, value=user)
             ws.cell(row=users_row_offset + i + 1, column=col_offset + 1, value=count)
         
-        # Create horizontal bar chart for users
+        # Create horizontal bar chart for users with styling
         chart2 = BarChart()
         chart2.type = "bar"
         chart2.style = 11
@@ -795,12 +808,21 @@ def generate_charts_with_openpyxl():
         cats2 = Reference(ws, min_col=col_offset, min_row=users_row_offset + 1, max_row=users_end_row, max_col=col_offset)
         chart2.add_data(data2, titles_from_data=False)
         chart2.set_categories(cats2)
+        
+        # Add gap width and light dark blue color styling
+        for series in chart2.series:
+            series.graphicalProperties = GraphicalProperties()
+            series.graphicalProperties.solidFill = SolidColorFillProperties()
+            series.graphicalProperties.solidFill.schemeClr = SchemeColor(val="accent1")  # Light dark blue
+        
+        chart2.gapWidth = 200
+        chart2.overlap = 0
         chart2.width = 15
         chart2.height = 10
         ws.add_chart(chart2, f"H{users_start_row}")
         
-        # 3. Priority Distribution Pie Chart
-        priority_start_row = users_end_row + 5
+        # 3. Priority Distribution Pie Chart - Add more spacing
+        priority_start_row = users_end_row + 15  # Increased spacing from 5 to 15
         ws.cell(row=priority_start_row, column=col_offset, value="Priority wise ticket count")
         priority_row_offset = priority_start_row + 1
         ws.cell(row=priority_row_offset, column=col_offset, value="Priority")
@@ -822,8 +844,8 @@ def generate_charts_with_openpyxl():
         chart3.height = 10
         ws.add_chart(chart3, f"H{priority_start_row}")
         
-        # 4. SLA Chart Data
-        sla_start_row = priority_end_row + 5
+        # 4. SLA Chart Data - Add more spacing
+        sla_start_row = priority_end_row + 15  # Increased spacing from 5 to 15
         ws.cell(row=sla_start_row, column=col_offset, value="SLA")
         sla_row_offset = sla_start_row + 1
         ws.cell(row=sla_row_offset, column=col_offset, value="SLA Status")
@@ -844,8 +866,8 @@ def generate_charts_with_openpyxl():
         chart4.height = 10
         ws.add_chart(chart4, f"H{sla_start_row}")
         
-        # 5. Account Count Chart Data
-        account_start_row = sla_row_offset + 8
+        # 5. Account Count Chart Data - Add more spacing
+        account_start_row = sla_row_offset + 18  # Increased spacing from 8 to 18
         ws.cell(row=account_start_row, column=col_offset, value="Ticket Count by Accountwise")
         account_row_offset = account_start_row + 1
         ws.cell(row=account_row_offset, column=col_offset, value="Account")
@@ -855,7 +877,7 @@ def generate_charts_with_openpyxl():
             ws.cell(row=account_row_offset + i + 1, column=col_offset, value=account)
             ws.cell(row=account_row_offset + i + 1, column=col_offset + 1, value=count)
         
-        # Create horizontal bar chart for accounts
+        # Create horizontal bar chart for accounts with styling
         chart5 = BarChart()
         chart5.type = "bar"
         chart5.style = 12
@@ -868,6 +890,15 @@ def generate_charts_with_openpyxl():
         cats5 = Reference(ws, min_col=col_offset, min_row=account_row_offset + 1, max_row=account_end_row, max_col=col_offset)
         chart5.add_data(data5, titles_from_data=False)
         chart5.set_categories(cats5)
+        
+        # Add gap width and light dark blue color styling
+        for series in chart5.series:
+            series.graphicalProperties = GraphicalProperties()
+            series.graphicalProperties.solidFill = SolidColorFillProperties()
+            series.graphicalProperties.solidFill.schemeClr = SchemeColor(val="accent1")  # Light dark blue
+        
+        chart5.gapWidth = 200
+        chart5.overlap = 0
         chart5.width = 15
         chart5.height = 10
         ws.add_chart(chart5, f"H{account_start_row}")
