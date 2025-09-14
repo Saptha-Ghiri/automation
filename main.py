@@ -14,20 +14,6 @@ import re
 from extract_queue_data import extract_resource_status_counts, create_sample_data
 from ppt_automation import generate_weekly_report
 status_str = None
-
-def cleanup_temp_files():
-    """Securely delete temporary files"""
-    if 'temp_files' in st.session_state:
-        for temp_file in st.session_state.temp_files:
-            try:
-                if os.path.exists(temp_file):
-                    os.remove(temp_file)
-                    st.info(f"🧹 Cleaned up temporary file: {temp_file}")
-            except Exception as e:
-                st.warning(f"Could not remove temp file {temp_file}: {e}")
-        st.session_state.temp_files = []
-
-# Security warning function removed - users assumed to accept risk
 def extract_date_period_from_excel(file_path):
     """Extract date period from Excel file cell B7"""
     try:
@@ -236,6 +222,10 @@ if 'combined_json_path' not in st.session_state:
     st.session_state.combined_json_path = None
 if 'date_info' not in st.session_state:
     st.session_state.date_info = None
+if 'temp' not in st.session_state:
+    st.session_state.temp = ['new', 'inprogress', 'awaiting', 'internal solution provided', 'resolved with customer', 'closed']
+    
+
 
 def add_horizontal_chart(file_path, sheet_name, start_row, start_col, chart_title="Chart", chart_type="bar_clustered", chart_index=0):
     """Create charts using xlwings"""
@@ -442,25 +432,13 @@ def add_pie_chart_xlwings(sheet, start_row, start_col, chart_title, chart_index=
 def process_temp_daas_file(temp_daas_file):
     """Process temp_daas_queue file in background"""
     if temp_daas_file is not None:
-        # Save temp file with unique name
-        import uuid
-        unique_id = str(uuid.uuid4())[:8]
-        temp_daas_path = f"temp_daas_queue_{unique_id}.xlsx"
+        # Save temp file
+        temp_daas_path = "temp_daas_queue.xlsx"
+        with open(temp_daas_path, "wb") as f:
+            f.write(temp_daas_file.getvalue())
         
-        try:
-            with open(temp_daas_path, "wb") as f:
-                f.write(temp_daas_file.getvalue())
-            
-            # Store temp file path for cleanup later
-            if 'temp_files' not in st.session_state:
-                st.session_state.temp_files = []
-            st.session_state.temp_files.append(temp_daas_path)
-            
-            # Extract data using existing function
-            resource_counts, status_counts, date_wise_data = extract_resource_status_counts(temp_daas_path)
-        except Exception as e:
-            st.error(f"Error processing DaaS queue file: {e}")
-            return None
+        # Extract data using existing function
+        resource_counts, status_counts, date_wise_data = extract_resource_status_counts(temp_daas_path)
         
         # If extraction failed, use sample data
         if resource_counts is None:
@@ -475,27 +453,12 @@ def process_temp_daas_file(temp_daas_file):
 
 def process_uploaded_file(uploaded_file):
     """Process uploaded file using simplified logic from main.py"""
-    # Save uploaded file as working file with secure temp file
-    import tempfile
-    import uuid
-    
-    # Create unique temp file name to avoid conflicts
-    unique_id = str(uuid.uuid4())[:8]
-    temp_file_path = f"working_file_{unique_id}.xlsx"
-    
-    try:
-        with open(temp_file_path, "wb") as f:
-            f.write(uploaded_file.getvalue())
-        
-        # Store temp file path for cleanup later
-        if 'temp_files' not in st.session_state:
-            st.session_state.temp_files = []
-        st.session_state.temp_files.append(temp_file_path)
-        
-        st.session_state.file_path = temp_file_path
-    except Exception as e:
-        st.error(f"Error saving uploaded file: {e}")
-        return
+    # Save uploaded file as working file
+    temp_file_path = "working_file.xlsx"
+    with open(temp_file_path, "wb") as f:
+        f.write(uploaded_file.getvalue())
+
+    st.session_state.file_path = temp_file_path
     st.session_state.wb = load_workbook(temp_file_path)
     st.session_state.ws = st.session_state.wb['Cloud Services Report']
     
@@ -537,26 +500,6 @@ def process_uploaded_file(uploaded_file):
     st.session_state.wb.save(st.session_state.file_path)
     st.session_state.file_processed = True
 
-def find_section_status(current_row):
-    """Find the status that applies to the current row by looking backwards in the section"""
-    ws = st.session_state.ws
-    
-    # Look backwards from current row to find the status for this section
-    for check_row in range(current_row, 12, -1):  # Go back to row 13 (start of tickets)
-        cell_b = ws.cell(row=check_row, column=2).value
-        cell_c = ws.cell(row=check_row, column=3).value
-        
-        # If we find a status (cell B has content and it's not "Total" or "Subtotal")
-        if cell_b and str(cell_b).strip():
-            cell_b_str = str(cell_b).strip()
-            if cell_b_str not in ["Total", "Subtotal"]:
-                # Make sure this isn't a subtotal row (check column C)
-                if not (cell_c and str(cell_c).strip() == "Subtotal"):
-                    return cell_b_str
-    
-    # If no status found, return None
-    return None
-
 def get_current_ticket_for_processing():
     """Get current ticket details using simplified logic from main.py"""
     ws = st.session_state.ws
@@ -578,18 +521,24 @@ def get_current_ticket_for_processing():
             status = ws.cell(row=row, column=2).value
             user = ws.cell(row=row, column=5).value  
             priority = ws.cell(row=row, column=12).value
-            subject = ws.cell(row=row, column=7).value
             
-            # If this row doesn't have a status, find the section status
-            if not status or not str(status).strip():
-                status = find_section_status(row)
+            # Initialize status_str in session state if it doesn't exist
+            if 'status_str' not in st.session_state:
+                st.session_state.status_str = None
+            
+            # Update status_str based on current row's status
+            if status is None:
+                if st.session_state.status_str is None:
+                    st.session_state.status_str = "consider as previous stats as current"
+                # else keep the previous status_str value
+            else:
+                st.session_state.status_str = str(status)
             
             return {
                 'row': row,
-                'status': safe_str(status),
+                'status': st.session_state.status_str,  # Use status_str instead of raw status
                 'user': safe_str(user),
-                'subject': safe_str(subject),
-                
+                'priority': safe_str(priority)
             }
     else:
         return None
@@ -688,6 +637,60 @@ def update_section_subtotal_count(section_start_row, section_end_row):
     
     return ticket_count
 
+def find_first_ticket_of_each_section(subtotal_rows, section_status_map):
+    """Find the first ticket row of each section after processing completion"""
+    ws = st.session_state.ws
+    
+    print("=" * 50)
+    print("FIRST TICKET OF EACH SECTION ANALYSIS")
+    print("=" * 50)
+    
+    section_start = 13  # First section starts at row 13
+    
+    for i, subtotal_row in enumerate(subtotal_rows):
+        print(f"\n--- Section {i+1} (Rows {section_start} to {subtotal_row-1}) ---")
+        
+        # Get the section status from the passed map
+        section_status = section_status_map.get(i+1, "Unknown")
+        print(f"Section Status: {section_status}")
+        ws.cell(row=subtotal_row, column=2, value = section_status)  # Just to ensure subtotal row exists
+        
+        # Look for the first ticket in this section
+        first_ticket_found = False
+        for check_row in range(section_start, subtotal_row):
+            # Check for actual ticket data
+            case_num = ws.cell(row=check_row, column=4).value
+            subject = ws.cell(row=check_row, column=7).value
+            responsible = ws.cell(row=check_row, column=5).value
+            status = ws.cell(row=check_row, column=2).value
+            
+            # Skip empty rows and count/subtotal rows
+            if status and str(status).strip() in ["Count", "Subtotal", "Total"]:
+                continue
+                
+            if case_num or subject or responsible:
+                print(f"First Ticket Row: {check_row}")
+                print(f"Case Number: {case_num or 'None'}")
+                print(f"Subject: {subject or 'None'}")
+                print(f"Responsible: {responsible or 'None'}")
+                print(f"Row Status: {status or 'None'}")
+                
+                if not status:
+                    print("WARNING: First ticket has no status - section status should be applied!")
+                elif str(status).strip() != section_status:
+                    print(f"NOTE: Row status '{status}' differs from section status '{section_status}'")
+                
+                first_ticket_found = True
+                break
+        
+        if not first_ticket_found:
+            print("No tickets found in this section!")
+        
+        # Next section starts after this subtotal
+        section_start = subtotal_row + 1
+    
+    print("=" * 50)
+
 def update_all_subtotals_and_total():
     """Update all section subtotals and the final total"""
     ws = st.session_state.ws
@@ -721,51 +724,38 @@ def update_all_subtotals_and_total():
         ws.cell(row=total_row, column=4, value=total_tickets)
         st.success(f"🎯 Final total updated to {total_tickets} tickets")
     
-    # Update session state total for chart generation
+    # Update session state total for chart Cgeneration
     st.session_state.total = total_tickets
     
     return total_tickets
-
-def preserve_status_when_deleting_first_ticket(row):
-    """Preserve status in the next ticket when deleting the first ticket of a section"""
-    ws = st.session_state.ws
-    
-    # Get the status from the current row (column 2)
-    current_status = ws.cell(row=row, column=2).value
-    
-    # If this row has a status, we need to preserve it
-    if current_status and str(current_status).strip():
-        # Find the next ticket row in the same section
-        next_row = row + 1
-        max_row = ws.max_row
-        
-        while next_row <= max_row:
-            next_cell_b = ws.cell(row=next_row, column=2).value
-            next_cell_c = ws.cell(row=next_row, column=3).value
-            
-            # If we hit a subtotal or total, stop
-            if (next_cell_b and str(next_cell_b).strip() in ["Subtotal", "Total"]) or \
-               (next_cell_c and str(next_cell_c).strip() == "Subtotal"):
-                break
-            
-            # If this is a ticket row (has case number in column 3)
-            if next_cell_c and str(next_cell_c).strip() and str(next_cell_c).strip() != "Subtotal":
-                # Move the status to this row
-                ws.cell(row=next_row, column=2, value=current_status)
-                st.info(f"📋 Status '{current_status}' preserved in row {next_row}")
-                break
-            
-            next_row += 1
 
 def process_current_ticket(action, action_text="", selected_account=""):
     """Process ticket using simplified logic from main.py"""
     ws = st.session_state.ws
     row = st.session_state.current_row
     
-    if action == "delete":
-        # Before deleting, check if this row has a status that needs to be preserved
-        preserve_status_when_deleting_first_ticket(row)
+    # Get all cell values at the beginning - this is what you wanted to move outside!
+    user_name = ws.cell(row=row, column=5).value
+    priority_val = ws.cell(row=row, column=12).value  
+    status_val = ws.cell(row=row, column=2).value
+    print()
+    # Handle status_str assignment
+    if status_val is None:
+        if st.session_state.status_str is None:
+            st.session_state.status_str = "consider as previous stats as current"
+        # else keep the previous status_str value
+    else:
+        st.session_state.status_str = str(status_val)
+    
+    # Initialize status_str in session state if it doesn't exist
+    if 'status_str' not in st.session_state:
+        st.session_state.status_str = None
+    # if st.session_state.status_str not in st.session_state.temp:
+    #     st.session_state.temp.append(st.session_state.status_str)
         
+    
+    
+    if action == "delete":
         # Check if we need to cleanup empty section BEFORE deleting the row
         section_cleaned = check_and_cleanup_empty_section_after_delete(row)
         
@@ -788,15 +778,8 @@ def process_current_ticket(action, action_text="", selected_account=""):
         ws.cell(row=row, column=8, value=action_text)
         ws.cell(row=row, column=9, value=selected_account)
         
-        # Update statistics
-        user_name = ws.cell(row=row, column=5).value
-        priority_val = ws.cell(row=row, column=12).value  
-        status_val = ws.cell(row=row, column=2).value
         
-        # Initialize status_str in session state if it doesn't exist
-        if 'status_str' not in st.session_state:
-            st.session_state.status_str = None
-        
+        # Update statistics - values already retrieved at function start
         if selected_account in st.session_state.stats['account_count']:
             st.session_state.stats['account_count'][selected_account] += 1
         if user_name and str(user_name) in st.session_state.stats['ticket_completed']:
@@ -805,15 +788,27 @@ def process_current_ticket(action, action_text="", selected_account=""):
             st.session_state.stats['priority'][str(priority_val)] += 1
         print(f"Status Value: {status_val}, {type(status_val)}")  # Debugging line
         print(f"Status String before assignment: {st.session_state.status_str}")  # Debugging line
-        if status_val is None:
-            if st.session_state.status_str is None:
-                st.session_state.status_str = "consider as previous stats as current"
-            # else keep the previous status_str value
-        else:
-            st.session_state.status_str = str(status_val)
+        
+        # # Handle status_str assignment
+        # if status_val is None:
+        #     if st.session_state.status_str is None:
+        #         st.session_state.status_str = "consider as previous stats as current"
+        #     # else keep the previous status_str value
+        # else:
+        #     st.session_state.status_str = str(status_val)
+            
         print(f"Status String after assignment: {st.session_state.status_str}")  # Debugging line
         if st.session_state.status_str in st.session_state.stats['dict_status']:
             st.session_state.stats['dict_status'][st.session_state.status_str] += 1
+            
+        print(st.session_state.temp)
+        for i in st.session_state.stats['dict_status'].keys():
+            if st.session_state.stats['dict_status'][i] == 1:
+                if i.lower() in st.session_state.temp:
+                    ws.cell(row=row, column=2, value = st.session_state.status_str) 
+                    st.session_state.temp.remove(i.lower())
+                    break
+        print(st.session_state.temp)
         print()
         st.session_state.total += 1
         st.success(f"Row {row} updated successfully.")
@@ -841,6 +836,10 @@ def generate_charts_with_openpyxl():
         # Add chart data with preserved styles
         from openpyxl.chart import BarChart, PieChart, Reference
         from openpyxl.chart.label import DataLabelList
+        from openpyxl.drawing.colors import ColorChoice
+        from openpyxl.chart.shapes import GraphicalProperties
+        from openpyxl.drawing.fill import SolidColorFillProperties
+        from openpyxl.styles.colors import Color
         
         # 1. Ticket Status Chart Data
         ws.cell(row=chart_start_row, column=col_offset, value="TICKET STATUS")
@@ -855,7 +854,7 @@ def generate_charts_with_openpyxl():
         # Create horizontal bar chart for status with gap width
         chart1 = BarChart()
         chart1.type = "bar"
-        chart1.style = 2  # Use a built-in style that includes blue colors
+        chart1.style = 10
         chart1.title = "Ticket Status Count"
         chart1.y_axis.title = 'Status'
         chart1.x_axis.title = 'Count'
@@ -866,24 +865,21 @@ def generate_charts_with_openpyxl():
         chart1.add_data(data, titles_from_data=False)
         chart1.set_categories(cats)
         
-        # Add gap width and styling - simplified to avoid XML errors
-        try:
-            # Set chart colors using simpler approach
-            from openpyxl.chart.series import DataPoint
-            for series in chart1.series:
-                # Use built-in chart style instead of custom colors to avoid XML issues
-                pass  # Let Excel use default styling
-        except Exception as e:
-            st.warning(f"Chart styling warning: {e}")
+        # Add gap width and light dark blue color styling
+        for series in chart1.series:
+            series.graphicalProperties = GraphicalProperties()
+            # Set light dark blue color using ColorChoice with RGB hex value
+            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
+            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
         
         # Set gap width to match xlwings behavior (200% gap width)
         chart1.gapWidth = 200
         chart1.overlap = 0
         
-        # Position chart with proper spacing - moved to column G
+        # Position chart with proper spacing
         chart1.width = 15
         chart1.height = 10
-        ws.add_chart(chart1, f"G{chart_start_row}")
+        ws.add_chart(chart1, f"H{chart_start_row}")
         
         # 2. User Ticket Completion Chart Data - Add more spacing between charts
         users_start_row = data_end_row + 15  # Increased spacing from 5 to 15
@@ -899,7 +895,7 @@ def generate_charts_with_openpyxl():
         # Create horizontal bar chart for users with styling
         chart2 = BarChart()
         chart2.type = "bar"
-        chart2.style = 2  # Use same blue style for consistency
+        chart2.style = 11
         chart2.title = "Users Completed"
         chart2.y_axis.title = 'Users'
         chart2.x_axis.title = 'Tickets'
@@ -910,19 +906,18 @@ def generate_charts_with_openpyxl():
         chart2.add_data(data2, titles_from_data=False)
         chart2.set_categories(cats2)
         
-        # Add gap width and styling - simplified to avoid XML errors
-        try:
-            # Use built-in chart styles for better compatibility
-            for series in chart2.series:
-                pass  # Let Excel use default styling
-        except Exception as e:
-            st.warning(f"Chart styling warning: {e}")
+        # Add gap width and light dark blue color styling
+        for series in chart2.series:
+            series.graphicalProperties = GraphicalProperties()
+            # Set light dark blue color using ColorChoice with RGB hex value
+            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
+            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
         
         chart2.gapWidth = 200
         chart2.overlap = 0
         chart2.width = 15
         chart2.height = 10
-        ws.add_chart(chart2, f"G{users_start_row}")
+        ws.add_chart(chart2, f"H{users_start_row}")
         
         # 3. Priority Distribution Pie Chart - Add more spacing
         priority_start_row = users_end_row + 15  # Increased spacing from 5 to 15
@@ -945,7 +940,7 @@ def generate_charts_with_openpyxl():
         chart3.set_categories(cats3)
         chart3.width = 15
         chart3.height = 10
-        ws.add_chart(chart3, f"G{priority_start_row}")
+        ws.add_chart(chart3, f"H{priority_start_row}")
         
         # 4. SLA Chart Data - Add more spacing
         sla_start_row = priority_end_row + 15  # Increased spacing from 5 to 15
@@ -967,7 +962,7 @@ def generate_charts_with_openpyxl():
         chart4.set_categories(cats4)
         chart4.width = 15
         chart4.height = 10
-        ws.add_chart(chart4, f"G{sla_start_row}")
+        ws.add_chart(chart4, f"H{sla_start_row}")
         
         # 5. Account Count Chart Data - Add more spacing
         account_start_row = sla_row_offset + 18  # Increased spacing from 8 to 18
@@ -983,7 +978,7 @@ def generate_charts_with_openpyxl():
         # Create horizontal bar chart for accounts with styling
         chart5 = BarChart()
         chart5.type = "bar"
-        chart5.style = 2  # Use same blue style for consistency
+        chart5.style = 12
         chart5.title = "Ticket Count by Accountwise"
         chart5.y_axis.title = 'Account'
         chart5.x_axis.title = 'Tickets'
@@ -994,19 +989,18 @@ def generate_charts_with_openpyxl():
         chart5.add_data(data5, titles_from_data=False)
         chart5.set_categories(cats5)
         
-        # Add gap width and styling - simplified to avoid XML errors
-        try:
-            # Use built-in chart styles for better compatibility
-            for series in chart5.series:
-                pass  # Let Excel use default styling
-        except Exception as e:
-            st.warning(f"Chart styling warning: {e}")
+        # Add gap width and light dark blue color styling
+        for series in chart5.series:
+            series.graphicalProperties = GraphicalProperties()
+            # Set light dark blue color using ColorChoice with RGB hex value
+            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
+            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
         
         chart5.gapWidth = 200
         chart5.overlap = 0
         chart5.width = 15
         chart5.height = 10
-        ws.add_chart(chart5, f"G{account_start_row}")
+        ws.add_chart(chart5, f"H{account_start_row}")
         
         # Save the file with preserved formatting and new charts
         output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
@@ -1313,6 +1307,9 @@ def main():
     st.title("📊 CSM Report Processor")
     st.markdown("Process your Cloud Services Report with interactive charts generation")
     
+    # Declare array/list in main function
+    my_array = []
+    
     # Sidebar
     with st.sidebar:
         st.header("📋 Progress")
@@ -1408,35 +1405,27 @@ def main():
             # Display current ticket 
             with st.form(key=f"form_{current_ticket['row']}"):
                 st.subheader(f"Current Row: {current_ticket['row']}")
-                st.write(f"**Ticket Status**: {current_ticket['status'] if current_ticket['status'] else status_str}")
+                st.write(f"**Ticket Status**: {current_ticket['status']}")
                 st.write(f"**User**: {current_ticket['user']}")
-                st.write(f"**Subject**: {current_ticket['subject']}")
+                st.write(f"**Priority**: {current_ticket['priority']}")
 
                 col1, col2 = st.columns(2)
                 with col1:
-                    action_text = st.text_input("Enter Action text:", placeholder="Required for update...")
+                    action_text = st.text_input("Enter Action text:")
                 with col2:
                     account_options = list(st.session_state.stats['account_count'].keys())
                     selected_account = st.selectbox("Select Account:", account_options)
                 
-                # Side by side buttons
-                button_col1, button_col2 = st.columns(2)
-                with button_col1:
-                    delete_row = st.form_submit_button("🗑️ Delete Row", use_container_width=True)
-                with button_col2:
-                    update_row = st.form_submit_button("✅ Update Row", use_container_width=True)
+                delete_row = st.form_submit_button(label="Delete this row")
+                update_row = st.form_submit_button(label="Update with details")
 
             if delete_row:
                 process_current_ticket("delete")
                 st.rerun()
 
             if update_row:
-                # Validate action text before processing
-                if not action_text or not action_text.strip():
-                    st.error("❌ Action text is required for updating the row!")
-                else:
-                    process_current_ticket("update", action_text, selected_account)
-                    st.rerun()
+                process_current_ticket("update", action_text, selected_account)
+                st.rerun()
         else:
             # All tickets processed
             st.session_state.processing_complete = True
@@ -1446,6 +1435,15 @@ def main():
         # Results phase with enhanced report generation section
         st.header("🎉 Processing Complete!")
         st.success("All tickets have been processed successfully!")
+       
+        
+        # Find subtotal rows
+        subtotal_rows = []
+        for row in range(13, st.session_state.ws.max_row + 1):
+            cell_val = st.session_state.ws.cell(row=row, column=2).value
+            if cell_val and str(cell_val).strip() == "Subtotal":
+                subtotal_rows.append(row)
+        
         
         # Summary statistics at the top
         col1, col2, col3, col4 = st.columns(4)
@@ -1502,38 +1500,22 @@ def main():
             st.markdown("Generate Excel file with charts and visualizations")
             
             if st.button("🚀 Generate Charts & Excel", type="primary", use_container_width=True):
-                # Create modal dialog using popover
-                with st.expander("📊 Generating Excel Report...", expanded=True):
+                with st.spinner("🔄 Generating charts and preparing files..."):
                     progress_bar = st.progress(0)
                     status_text = st.empty()
-                    
-                    status_text.text("🔄 Starting chart generation...")
-                    progress_bar.progress(10)
-                    time.sleep(0.5)
                     
                     status_text.text("📊 Creating charts...")
                     progress_bar.progress(30)
                     excel_path, json_path = generate_charts_and_save()
                     
-                    progress_bar.progress(80)
-                    status_text.text("💾 Saving files...")
-                    time.sleep(0.5)
-                    
                     progress_bar.progress(100)
-                    status_text.text("✅ Excel report generated successfully!")
+                    status_text.text("✅ Reports generated successfully!")
                 
-                # Store in session state for persistence
                 if excel_path and json_path:
-                    st.session_state.excel_generated = True
-                    st.session_state.excel_path = excel_path
-                    st.session_state.json_path = json_path
                     st.success("📊 Charts generated successfully!")
-                    st.rerun()
-            
-            # Show download buttons if Excel is generated
-            if st.session_state.get('excel_generated', False) and st.session_state.get('excel_path'):
-                try:
-                    with open(st.session_state.excel_path, "rb") as file:
+                    
+                    # Provide download buttons
+                    with open(excel_path, "rb") as file:
                         st.download_button(
                             label="📥 Download Excel Report",
                             data=file.read(),
@@ -1542,7 +1524,7 @@ def main():
                             use_container_width=True
                         )
                     
-                    with open(st.session_state.json_path, "rb") as file:
+                    with open(json_path, "rb") as file:
                         st.download_button(
                             label="📄 Download JSON Data",
                             data=file.read(),
@@ -1550,8 +1532,6 @@ def main():
                             mime="application/json",
                             use_container_width=True
                         )
-                except FileNotFoundError:
-                    st.warning("Files not found. Please regenerate.")
         
         with col2:
             st.markdown("#### 🔗 Combined JSON")
@@ -1559,118 +1539,69 @@ def main():
             
             if st.button("🔗 Generate Combined JSON", type="primary", use_container_width=True):
                 if st.session_state.temp_daas_processed:
-                    with st.expander("🔗 Generating Combined JSON...", expanded=True):
+                    with st.spinner("🔄 Creating combined JSON data..."):
                         progress_bar = st.progress(0)
                         status_text = st.empty()
-                        
-                        status_text.text("🔄 Starting JSON generation...")
-                        progress_bar.progress(20)
-                        time.sleep(0.3)
                         
                         status_text.text("🔗 Combining data sources...")
                         progress_bar.progress(50)
                         json_path, json_data = create_combined_json_data()
                         
-                        progress_bar.progress(80)
-                        status_text.text("💾 Saving combined JSON...")
-                        time.sleep(0.3)
-                        
                         progress_bar.progress(100)
                         status_text.text("✅ Combined JSON created!")
                     
-                    # Store in session state for persistence and PPT generation
                     if json_path and json_data:
-                        st.session_state.combined_json_generated = True
-                        st.session_state.combined_json_path = json_path
-                        st.session_state.combined_json_data = json_data
                         st.success("🔗 Combined JSON created successfully!")
-                        st.rerun()
+                        
+                        with open(json_path, "rb") as file:
+                            st.download_button(
+                                label="📥 Download Combined JSON",
+                                data=file.read(),
+                                file_name=f"combined_data_{int(time.time())}.json",
+                                mime="application/json",
+                                use_container_width=True
+                            )
+                        
+                        # Show JSON preview in an expandable section
+                        with st.expander("🔍 Preview JSON Structure"):
+                            st.json(json_data['metadata'])
                 else:
                     st.error("❌ Please process DaaS queue file first")
-            
-            # Show download button if Combined JSON is generated
-            if st.session_state.get('combined_json_generated', False) and st.session_state.get('combined_json_path'):
-                try:
-                    with open(st.session_state.combined_json_path, "rb") as file:
-                        st.download_button(
-                            label="📥 Download Combined JSON",
-                            data=file.read(),
-                            file_name=f"combined_data_{int(time.time())}.json",
-                            mime="application/json",
-                            use_container_width=True
-                        )
-                    
-                    # Show JSON preview in an expandable section
-                    with st.expander("🔍 Preview JSON Structure"):
-                        st.json(st.session_state.combined_json_data['metadata'])
-                except FileNotFoundError:
-                    st.warning("JSON file not found. Please regenerate.")
         
         with col3:
             st.markdown("#### 🎯 PowerPoint Report")
             st.markdown("Generate final presentation from combined data")
             
-            if st.button("🎯 Generate PowerPoint", type="primary", use_container_width=True):
-                # Auto-generate JSON if not already generated
-                if not st.session_state.get('combined_json_generated', False):
-                    if st.session_state.temp_daas_processed:
-                        with st.expander("🔗 Auto-generating Combined JSON...", expanded=True):
-                            progress_bar = st.progress(0)
-                            status_text = st.empty()
-                            
-                            status_text.text("🔄 Auto-generating JSON for PPT...")
-                            progress_bar.progress(25)
-                            json_path, json_data = create_combined_json_data()
-                            
-                            if json_path and json_data:
-                                st.session_state.combined_json_generated = True
-                                st.session_state.combined_json_path = json_path
-                                st.session_state.combined_json_data = json_data
-                                progress_bar.progress(50)
-                                status_text.text("✅ JSON auto-generated successfully!")
-                    else:
-                        st.error("❌ Please process DaaS queue file first")
-                        st.stop()
-                
-                # Generate PowerPoint
-                if st.session_state.get('combined_json_data'):
-                    with st.expander("🎯 Generating PowerPoint...", expanded=True):
+            # Check if combined JSON exists
+            if hasattr(st.session_state, 'combined_json_data'):
+                if st.button("🎯 Generate PowerPoint", type="primary", use_container_width=True):
+                    with st.spinner("🎯 Generating PowerPoint presentation..."):
                         progress_bar = st.progress(0)
                         status_text = st.empty()
                         
                         status_text.text("🎯 Creating PowerPoint slides...")
                         progress_bar.progress(30)
-                        time.sleep(0.5)
-                        
                         ppt_path = generate_ppt_from_json(st.session_state.combined_json_data)
-                        
-                        progress_bar.progress(80)
-                        status_text.text("💾 Saving PowerPoint...")
-                        time.sleep(0.5)
                         
                         progress_bar.progress(100)
                         status_text.text("✅ PowerPoint generated!")
                     
-                    # Store in session state for persistence
                     if ppt_path and os.path.exists(ppt_path):
-                        st.session_state.ppt_generated = True
-                        st.session_state.ppt_path = ppt_path
                         st.success("🎯 PowerPoint report generated successfully!")
-                        st.rerun()
-            
-            # Show download button if PPT is generated
-            if st.session_state.get('ppt_generated', False) and st.session_state.get('ppt_path'):
-                try:
-                    with open(st.session_state.ppt_path, "rb") as file:
-                        st.download_button(
-                            label="📥 Download PowerPoint",
-                            data=file.read(),
-                            file_name=f"final_report_{int(time.time())}.pptx",
-                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                            use_container_width=True
-                        )
-                except FileNotFoundError:
-                    st.warning("PowerPoint file not found. Please regenerate.")
+                        st.session_state.ppt_generated = True
+                        
+                        with open(ppt_path, "rb") as file:
+                            st.download_button(
+                                label="📥 Download PowerPoint",
+                                data=file.read(),
+                                file_name=f"final_report_{int(time.time())}.pptx",
+                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                use_container_width=True
+                            )
+            else:
+                st.info("📝 Generate Combined JSON first")
+                if st.button("📝 Generate Combined JSON First", use_container_width=True):
+                    st.rerun()
         
         st.markdown('</div>', unsafe_allow_html=True)
         
@@ -1679,28 +1610,6 @@ def main():
         col1, col2, col3 = st.columns([1, 1, 1])
         with col2:
             if st.button("🔄 Process New Files", type="secondary", use_container_width=True):
-                # Cleanup temp files before reset
-                cleanup_temp_files()
-                
-                # Cleanup generated files
-                if st.session_state.get('excel_path') and os.path.exists(st.session_state.excel_path):
-                    try:
-                        os.remove(st.session_state.excel_path)
-                    except:
-                        pass
-                        
-                if st.session_state.get('combined_json_path') and os.path.exists(st.session_state.combined_json_path):
-                    try:
-                        os.remove(st.session_state.combined_json_path)
-                    except:
-                        pass
-                        
-                if st.session_state.get('ppt_path') and os.path.exists(st.session_state.ppt_path):
-                    try:
-                        os.remove(st.session_state.ppt_path)
-                    except:
-                        pass
-                
                 # Reset session state
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
@@ -1767,24 +1676,4 @@ def main():
     
 
 if __name__ == "__main__":
-    # Cleanup temp files on app exit using atexit
-    import atexit
-    
-    def cleanup_on_exit():
-        """Cleanup function called when app exits"""
-        if 'temp_files' in st.session_state:
-            for temp_file in st.session_state.temp_files:
-                try:
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-                except:
-                    pass  # Silent cleanup on exit
-    
-    atexit.register(cleanup_on_exit)
-    
-    # Add manual cleanup button in sidebar for immediate cleanup
-    with st.sidebar:
-        if st.button("🧹 Cleanup Temp Files", help="Manually remove temporary files"):
-            cleanup_temp_files()
-    
     main()
