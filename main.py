@@ -155,6 +155,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Custom CSS for report generation section only
+st.markdown("""
+<style>
+    /* Statistics cards for report generation */
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        text-align: center;
+        margin: 0.5rem 0;
+    }
+    
+    /* Card styling for report generation section */
+    .report-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        border-left: 4px solid #667eea;
+        margin-bottom: 1rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Initialize session state - merged from main.py
 if 'file_processed' not in st.session_state:
     st.session_state.file_processed = False
@@ -1274,84 +1299,177 @@ def main():
             st.rerun()
     
     elif st.session_state.processing_complete:
-        # Results phase
+        # Results phase with enhanced report generation section
         st.header("🎉 Processing Complete!")
         st.success("All tickets have been processed successfully!")
         
+        # Summary statistics at the top
+        col1, col2, col3, col4 = st.columns(4)
+        total_processed = st.session_state.get('total', 0)
+        stats = st.session_state.stats
+        
+        with col1:
+            st.markdown("""
+            <div class="stat-card">
+                <h3>📊 Total Tickets</h3>
+                <h2>{}</h2>
+            </div>
+            """.format(total_processed), unsafe_allow_html=True)
+        
+        with col2:
+            completed_count = sum([v for k, v in stats['dict_status'].items() if k in ['Resolved with Customer', 'Closed']])
+            st.markdown("""
+            <div class="stat-card">
+                <h3>✅ Completed</h3>
+                <h2>{}</h2>
+            </div>
+            """.format(completed_count), unsafe_allow_html=True)
+        
+        with col3:
+            pending_count = sum([v for k, v in stats['dict_status'].items() if k in ['New', 'Inprogress', 'Awaiting']])
+            st.markdown("""
+            <div class="stat-card">
+                <h3>⏳ Pending</h3>
+                <h2>{}</h2>
+            </div>
+            """.format(pending_count), unsafe_allow_html=True)
+        
+        with col4:
+            completion_rate = (completed_count / total_processed * 100) if total_processed > 0 else 0
+            st.markdown("""
+            <div class="stat-card">
+                <h3>📈 Completion Rate</h3>
+                <h2>{:.0f}%</h2>
+            </div>
+            """.format(completion_rate), unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # Enhanced Report generation section
+        st.markdown('<div class="report-card">', unsafe_allow_html=True)
+        st.markdown("### 📋 Report Generation")
+        st.markdown("Generate various report formats from your processed data")
+        
+        # Three main action cards
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            if st.button("📊 Generate Charts & Excel", type="primary"):
-                with st.spinner("Generating charts and preparing files..."):
+            st.markdown("#### 📊 Excel Report")
+            st.markdown("Generate Excel file with charts and visualizations")
+            
+            if st.button("🚀 Generate Charts & Excel", type="primary", use_container_width=True):
+                with st.spinner("🔄 Generating charts and preparing files..."):
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    status_text.text("📊 Creating charts...")
+                    progress_bar.progress(30)
                     excel_path, json_path = generate_charts_and_save()
+                    
+                    progress_bar.progress(100)
+                    status_text.text("✅ Reports generated successfully!")
                 
                 if excel_path and json_path:
-                    st.success("Charts generated successfully!")
+                    st.success("📊 Charts generated successfully!")
                     
                     # Provide download buttons
                     with open(excel_path, "rb") as file:
                         st.download_button(
-                            label="📥 Download Excel with Charts",
+                            label="📥 Download Excel Report",
                             data=file.read(),
                             file_name=f"processed_report_{int(time.time())}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
                         )
                     
                     with open(json_path, "rb") as file:
                         st.download_button(
-                            label="📥 Download JSON Data",
+                            label="📄 Download JSON Data",
                             data=file.read(),
                             file_name=f"report_data_{int(time.time())}.json",
-                            mime="application/json"
+                            mime="application/json",
+                            use_container_width=True
                         )
         
         with col2:
-            if st.button("📊 Generate Combined JSON", type="primary"):
+            st.markdown("#### 🔗 Combined JSON")
+            st.markdown("Create comprehensive JSON with all processed data")
+            
+            if st.button("🔗 Generate Combined JSON", type="primary", use_container_width=True):
                 if st.session_state.temp_daas_processed:
-                    with st.spinner("Creating combined JSON data..."):
+                    with st.spinner("🔄 Creating combined JSON data..."):
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        status_text.text("🔗 Combining data sources...")
+                        progress_bar.progress(50)
                         json_path, json_data = create_combined_json_data()
+                        
+                        progress_bar.progress(100)
+                        status_text.text("✅ Combined JSON created!")
                     
                     if json_path and json_data:
-                        st.success("Combined JSON created successfully!")
+                        st.success("🔗 Combined JSON created successfully!")
                         
                         with open(json_path, "rb") as file:
                             st.download_button(
                                 label="📥 Download Combined JSON",
                                 data=file.read(),
                                 file_name=f"combined_data_{int(time.time())}.json",
-                                mime="application/json"
+                                mime="application/json",
+                                use_container_width=True
                             )
                         
-                        # Show JSON preview
-                        st.subheader("JSON Data Preview")
-                        st.json(json_data['metadata'])
+                        # Show JSON preview in an expandable section
+                        with st.expander("🔍 Preview JSON Structure"):
+                            st.json(json_data['metadata'])
                 else:
-                    st.error("Please process DaaS queue file first")
+                    st.error("❌ Please process DaaS queue file first")
         
-        # New column for PPT generation from JSON
-        if hasattr(st.session_state, 'combined_json_data'):
-            col_ppt = st.columns(1)[0]
-            with col_ppt:
-                if st.button("🎯 Generate PowerPoint from JSON", type="primary"):
-                    with st.spinner("Generating PowerPoint from JSON data..."):
+        with col3:
+            st.markdown("#### 🎯 PowerPoint Report")
+            st.markdown("Generate final presentation from combined data")
+            
+            # Check if combined JSON exists
+            if hasattr(st.session_state, 'combined_json_data'):
+                if st.button("🎯 Generate PowerPoint", type="primary", use_container_width=True):
+                    with st.spinner("🎯 Generating PowerPoint presentation..."):
+                        progress_bar = st.progress(0)
+                        status_text = st.empty()
+                        
+                        status_text.text("🎯 Creating PowerPoint slides...")
+                        progress_bar.progress(30)
                         ppt_path = generate_ppt_from_json(st.session_state.combined_json_data)
+                        
+                        progress_bar.progress(100)
+                        status_text.text("✅ PowerPoint generated!")
                     
                     if ppt_path and os.path.exists(ppt_path):
-                        st.success("PowerPoint report generated successfully!")
+                        st.success("🎯 PowerPoint report generated successfully!")
                         st.session_state.ppt_generated = True
                         
                         with open(ppt_path, "rb") as file:
                             st.download_button(
-                                label="📥 Download PowerPoint Report",
+                                label="📥 Download PowerPoint",
                                 data=file.read(),
                                 file_name=f"final_report_{int(time.time())}.pptx",
-                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                                use_container_width=True
                             )
+            else:
+                st.info("📝 Generate Combined JSON first")
+                if st.button("📝 Generate Combined JSON First", use_container_width=True):
+                    st.rerun()
         
-        with col3:
-            if st.button("🔄 Process Another File"):
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Reset option
+        st.markdown("---")
+        col1, col2, col3 = st.columns([1, 1, 1])
+        with col2:
+            if st.button("🔄 Process New Files", type="secondary", use_container_width=True):
                 # Reset session state
-                for key in st.session_state.keys():
+                for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()
         
@@ -1413,6 +1531,7 @@ def main():
                     import pandas as pd
                     df = pd.DataFrame(date_wise_df)
                     st.line_chart(df.set_index('Date'))
+    
 
 if __name__ == "__main__":
     main()
