@@ -27,42 +27,7 @@ def cleanup_temp_files():
                 st.warning(f"Could not remove temp file {temp_file}: {e}")
         st.session_state.temp_files = []
 
-def add_security_warning():
-    """Display security warning for users"""
-    st.error("""
-    🔒 **SECURITY NOTICE - READ CAREFULLY**: 
-    - This app runs on Streamlit Community Cloud (shared infrastructure)
-    - Your files are temporarily stored and processed on remote servers
-    - Files are automatically deleted after processing
-    - **DO NOT** upload files containing:
-      - Personal identifiable information (PII)
-      - Financial data, SSN, credit card numbers
-      - Confidential business data
-      - Any sensitive information
-    - For sensitive data, download and run this app locally instead
-    """)
-    
-    st.info("""
-    📋 **Recommended for Cloud Use**:
-    - Demo files with sample data
-    - Test files with mock information
-    - Non-sensitive business reports
-    """)
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🏠 Run Locally Instead", help="Download for local use"):
-            st.info("""
-            To run locally:
-            1. Download the source code
-            2. Install: pip install streamlit openpyxl xlwings python-pptx pandas
-            3. Run: streamlit run main.py
-            """)
-    
-    with col2:
-        accept_risk = st.checkbox("⚠️ I accept the risks and will only upload non-sensitive files")
-    
-    return accept_risk
+# Security warning function removed - users assumed to accept risk
 def extract_date_period_from_excel(file_path):
     """Extract date period from Excel file cell B7"""
     try:
@@ -1315,12 +1280,8 @@ def main():
     
     # Main content - Enhanced for dual file upload
     if not st.session_state.file_processed and not st.session_state.processing_complete:
-        # File upload phase with security warning
+        # File upload phase
         st.header("📁 Upload Excel Files")
-        
-        # Add security warning
-        if not add_security_warning():
-            st.stop()  # Stop execution until user acknowledges security notice
         
         col1, col2 = st.columns(2)
         
