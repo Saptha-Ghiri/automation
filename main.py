@@ -482,16 +482,20 @@ def process_temp_daas_file(temp_daas_file):
         unique_id = str(uuid.uuid4())[:8]
         temp_daas_path = f"temp_daas_queue_{unique_id}.xlsx"
         
-        with open(temp_daas_path, "wb") as f:
-            f.write(temp_daas_file.getvalue())
-        
-        # Store temp file path for cleanup later
-        if 'temp_files' not in st.session_state:
-            st.session_state.temp_files = []
-        st.session_state.temp_files.append(temp_daas_path)
-        
-        # Extract data using existing function
-        resource_counts, status_counts, date_wise_data = extract_resource_status_counts(temp_daas_path)
+        try:
+            with open(temp_daas_path, "wb") as f:
+                f.write(temp_daas_file.getvalue())
+            
+            # Store temp file path for cleanup later
+            if 'temp_files' not in st.session_state:
+                st.session_state.temp_files = []
+            st.session_state.temp_files.append(temp_daas_path)
+            
+            # Extract data using existing function
+            resource_counts, status_counts, date_wise_data = extract_resource_status_counts(temp_daas_path)
+        except Exception as e:
+            st.error(f"Error processing DaaS queue file: {e}")
+            return None
         
         # If extraction failed, use sample data
         if resource_counts is None:
@@ -522,8 +526,11 @@ def process_uploaded_file(uploaded_file):
         if 'temp_files' not in st.session_state:
             st.session_state.temp_files = []
         st.session_state.temp_files.append(temp_file_path)
-
-    st.session_state.file_path = temp_file_path
+        
+        st.session_state.file_path = temp_file_path
+    except Exception as e:
+        st.error(f"Error saving uploaded file: {e}")
+        return
     st.session_state.wb = load_workbook(temp_file_path)
     st.session_state.ws = st.session_state.wb['Cloud Services Report']
     
