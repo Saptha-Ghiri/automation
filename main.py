@@ -823,127 +823,105 @@ def generate_charts_with_openpyxl():
     """Generate charts using openpyxl while preserving ALL original styles, fonts, colors"""
     try:
         stats = st.session_state.stats
-        
-        # Load the original file with openpyxl to preserve ALL formatting
+
+        # Load the original file to preserve formatting
         wb = load_workbook(st.session_state.file_path)
         ws = wb.active
-        
-        # Find the last row with data
+
+        # Find last row with data
         last_row = ws.max_row
         chart_start_row = last_row + 3
-        col_offset = 5  # Column E (1-indexed = 5)
-        
-        # Add chart data with preserved styles
+        col_offset = 5  # Column E
+
         from openpyxl.chart import BarChart, PieChart, Reference
-        from openpyxl.chart.label import DataLabelList
-        from openpyxl.drawing.colors import ColorChoice
-        from openpyxl.chart.shapes import GraphicalProperties
-        from openpyxl.drawing.fill import SolidColorFillProperties
-        from openpyxl.styles.colors import Color
-        
-        # 1. Ticket Status Chart Data
+
+        # ===================== 1. Ticket Status =====================
         ws.cell(row=chart_start_row, column=col_offset, value="TICKET STATUS")
         row_offset = chart_start_row + 1
         ws.cell(row=row_offset, column=col_offset, value="Status")
         ws.cell(row=row_offset, column=col_offset + 1, value="Count")
-        
+
         for i, (status, count) in enumerate(stats['dict_status'].items()):
             ws.cell(row=row_offset + i + 1, column=col_offset, value=status)
             ws.cell(row=row_offset + i + 1, column=col_offset + 1, value=count)
-        
-        # Create horizontal bar chart for status with gap width
+
         chart1 = BarChart()
         chart1.type = "bar"
         chart1.style = 10
         chart1.title = "Ticket Status Count"
         chart1.y_axis.title = 'Status'
         chart1.x_axis.title = 'Count'
-        
+
         data_end_row = row_offset + len(stats['dict_status'])
-        data = Reference(ws, min_col=col_offset + 1, min_row=row_offset + 1, max_row=data_end_row, max_col=col_offset + 1)
-        cats = Reference(ws, min_col=col_offset, min_row=row_offset + 1, max_row=data_end_row, max_col=col_offset)
+        data = Reference(ws, min_col=col_offset + 1, min_row=row_offset + 1, max_row=data_end_row)
+        cats = Reference(ws, min_col=col_offset, min_row=row_offset + 1, max_row=data_end_row)
         chart1.add_data(data, titles_from_data=False)
         chart1.set_categories(cats)
-        
-        # Add gap width and light dark blue color styling
-        for series in chart1.series:
-            series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color using ColorChoice with RGB hex value
-            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
-        
-        # Set gap width to match xlwings behavior (200% gap width)
+
+        for s in chart1.series:
+            s.graphicalProperties.solidFill = "5B9BD5"
+
         chart1.gapWidth = 200
-        chart1.overlap = 0
-        
-        # Position chart with proper spacing
         chart1.width = 15
         chart1.height = 10
         ws.add_chart(chart1, f"H{chart_start_row}")
-        
-        # 2. User Ticket Completion Chart Data - Add more spacing between charts
-        users_start_row = data_end_row + 15  # Increased spacing from 5 to 15
+
+        # ===================== 2. User Ticket Completion =====================
+        users_start_row = data_end_row + 15
         ws.cell(row=users_start_row, column=col_offset, value="Ticket Completed by Individual")
         users_row_offset = users_start_row + 1
         ws.cell(row=users_row_offset, column=col_offset, value="Users")
         ws.cell(row=users_row_offset, column=col_offset + 1, value="Tickets")
-        
+
         for i, (user, count) in enumerate(stats['ticket_completed'].items()):
             ws.cell(row=users_row_offset + i + 1, column=col_offset, value=user)
             ws.cell(row=users_row_offset + i + 1, column=col_offset + 1, value=count)
-        
-        # Create horizontal bar chart for users with styling
+
         chart2 = BarChart()
         chart2.type = "bar"
         chart2.style = 11
         chart2.title = "Users Completed"
         chart2.y_axis.title = 'Users'
         chart2.x_axis.title = 'Tickets'
-        
+
         users_end_row = users_row_offset + len(stats['ticket_completed'])
-        data2 = Reference(ws, min_col=col_offset + 1, min_row=users_row_offset + 1, max_row=users_end_row, max_col=col_offset + 1)
-        cats2 = Reference(ws, min_col=col_offset, min_row=users_row_offset + 1, max_row=users_end_row, max_col=col_offset)
+        data2 = Reference(ws, min_col=col_offset + 1, min_row=users_row_offset + 1, max_row=users_end_row)
+        cats2 = Reference(ws, min_col=col_offset, min_row=users_row_offset + 1, max_row=users_end_row)
         chart2.add_data(data2, titles_from_data=False)
         chart2.set_categories(cats2)
-        
-        # Add gap width and light dark blue color styling
-        for series in chart2.series:
-            series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color using ColorChoice with RGB hex value
-            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
-        
+
+        for s in chart2.series:
+            s.graphicalProperties.solidFill = "5B9BD5"
+
         chart2.gapWidth = 200
-        chart2.overlap = 0
         chart2.width = 15
         chart2.height = 10
         ws.add_chart(chart2, f"H{users_start_row}")
-        
-        # 3. Priority Distribution Pie Chart - Add more spacing
-        priority_start_row = users_end_row + 15  # Increased spacing from 5 to 15
+
+        # ===================== 3. Priority Distribution =====================
+        priority_start_row = users_end_row + 15
         ws.cell(row=priority_start_row, column=col_offset, value="Priority wise ticket count")
         priority_row_offset = priority_start_row + 1
         ws.cell(row=priority_row_offset, column=col_offset, value="Priority")
         ws.cell(row=priority_row_offset, column=col_offset + 1, value="Count")
-        
+
         for i, (priority, count) in enumerate(stats['priority'].items()):
             ws.cell(row=priority_row_offset + i + 1, column=col_offset, value=priority)
             ws.cell(row=priority_row_offset + i + 1, column=col_offset + 1, value=count)
-        
-        # Create pie chart for priority
+
         chart3 = PieChart()
         chart3.title = "Priority Distribution"
         priority_end_row = priority_row_offset + len(stats['priority'])
-        data3 = Reference(ws, min_col=col_offset + 1, min_row=priority_row_offset + 1, max_row=priority_end_row, max_col=col_offset + 1)
-        cats3 = Reference(ws, min_col=col_offset, min_row=priority_row_offset + 1, max_row=priority_end_row, max_col=col_offset)
+        data3 = Reference(ws, min_col=col_offset + 1, min_row=priority_row_offset + 1, max_row=priority_end_row)
+        cats3 = Reference(ws, min_col=col_offset, min_row=priority_row_offset + 1, max_row=priority_end_row)
         chart3.add_data(data3, titles_from_data=False)
         chart3.set_categories(cats3)
         chart3.width = 15
         chart3.height = 10
         ws.add_chart(chart3, f"H{priority_start_row}")
-        
-        # 4. SLA Chart Data - Add more spacing
-        sla_start_row = priority_end_row + 15  # Increased spacing from 5 to 15
+
+        # ===================== 4. SLA =====================
+        sla_start_row = priority_end_row + 15
         ws.cell(row=sla_start_row, column=col_offset, value="SLA")
         sla_row_offset = sla_start_row + 1
         ws.cell(row=sla_row_offset, column=col_offset, value="SLA Status")
@@ -952,76 +930,68 @@ def generate_charts_with_openpyxl():
         ws.cell(row=sla_row_offset + 1, column=col_offset + 1, value=100)
         ws.cell(row=sla_row_offset + 2, column=col_offset, value="SLA LOST")
         ws.cell(row=sla_row_offset + 2, column=col_offset + 1, value=0)
-        
-        # Create pie chart for SLA
+
         chart4 = PieChart()
         chart4.title = "SLA MET vs SLA LOST"
-        data4 = Reference(ws, min_col=col_offset + 1, min_row=sla_row_offset + 1, max_row=sla_row_offset + 2, max_col=col_offset + 1)
-        cats4 = Reference(ws, min_col=col_offset, min_row=sla_row_offset + 1, max_row=sla_row_offset + 2, max_col=col_offset)
+        data4 = Reference(ws, min_col=col_offset + 1, min_row=sla_row_offset + 1, max_row=sla_row_offset + 2)
+        cats4 = Reference(ws, min_col=col_offset, min_row=sla_row_offset + 1, max_row=sla_row_offset + 2)
         chart4.add_data(data4, titles_from_data=False)
         chart4.set_categories(cats4)
         chart4.width = 15
         chart4.height = 10
         ws.add_chart(chart4, f"H{sla_start_row}")
-        
-        # 5. Account Count Chart Data - Add more spacing
-        account_start_row = sla_row_offset + 18  # Increased spacing from 8 to 18
+
+        # ===================== 5. Account Count =====================
+        account_start_row = sla_row_offset + 18
         ws.cell(row=account_start_row, column=col_offset, value="Ticket Count by Accountwise")
         account_row_offset = account_start_row + 1
         ws.cell(row=account_row_offset, column=col_offset, value="Account")
         ws.cell(row=account_row_offset, column=col_offset + 1, value="Tickets")
-        
+
         for i, (account, count) in enumerate(stats['account_count'].items()):
             ws.cell(row=account_row_offset + i + 1, column=col_offset, value=account)
             ws.cell(row=account_row_offset + i + 1, column=col_offset + 1, value=count)
-        
-        # Create horizontal bar chart for accounts with styling
+
         chart5 = BarChart()
         chart5.type = "bar"
         chart5.style = 12
         chart5.title = "Ticket Count by Accountwise"
         chart5.y_axis.title = 'Account'
         chart5.x_axis.title = 'Tickets'
-        
+
         account_end_row = account_row_offset + len(stats['account_count'])
-        data5 = Reference(ws, min_col=col_offset + 1, min_row=account_row_offset + 1, max_row=account_end_row, max_col=col_offset + 1)
-        cats5 = Reference(ws, min_col=col_offset, min_row=account_row_offset + 1, max_row=account_end_row, max_col=col_offset)
+        data5 = Reference(ws, min_col=col_offset + 1, min_row=account_row_offset + 1, max_row=account_end_row)
+        cats5 = Reference(ws, min_col=col_offset, min_row=account_row_offset + 1, max_row=account_end_row)
         chart5.add_data(data5, titles_from_data=False)
         chart5.set_categories(cats5)
-        
-        # Add gap width and light dark blue color styling
-        for series in chart5.series:
-            series.graphicalProperties = GraphicalProperties()
-            # Set light dark blue color using ColorChoice with RGB hex value
-            blue_color = Color(rgb="5B9BD5")  # Light dark blue color
-            series.graphicalProperties.solidFill = ColorChoice(srgbClr=blue_color)
-        
+
+        for s in chart5.series:
+            s.graphicalProperties.solidFill = "5B9BD5"
+
         chart5.gapWidth = 200
-        chart5.overlap = 0
         chart5.width = 15
         chart5.height = 10
         ws.add_chart(chart5, f"H{account_start_row}")
-        
-        # Save the file with preserved formatting and new charts
+
+        # ===================== Save Excel & JSON =====================
         output_path = st.session_state.file_path.replace('.xlsx', '_with_charts.xlsx')
         wb.save(output_path)
-        
-        # Create JSON data
+
         all_data = {
             'ticket_status_data': stats['dict_status'],
-            'individual_data': stats['ticket_completed'], 
+            'individual_data': stats['ticket_completed'],
             'main_chart_data': stats['dict_status'],
             'pie1_data': stats['priority'],
             'pie2_data': {"SLA MET": 100, "SLA LOST": 0},
             'account_data': stats['account_count']
         }
-        
+
         json_path = output_path.replace('.xlsx', '_data.json')
         with open(json_path, "w") as f:
             json.dump(all_data, f, indent=4)
-        
+
         return output_path, json_path
-        
+
     except Exception as e:
         st.error(f"Error generating charts with openpyxl: {e}")
         return None, None
