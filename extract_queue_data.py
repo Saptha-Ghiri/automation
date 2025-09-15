@@ -3,6 +3,42 @@ from collections import defaultdict
 import json
 import os
 
+def normalize_status(status):
+    """
+    Normalize similar statuses to group them together
+    """
+    if not status:
+        return status
+
+    status_lower = str(status).lower().strip()
+
+    # Group approval-related statuses
+    if any(word in status_lower for word in ['approval', 'approve', 'awaiting approval', 'pending approval']):
+        return 'Approval'
+
+    # Group closed-related statuses
+    if any(word in status_lower for word in ['closed', 'ticket closed', 'close']):
+        return 'Closed'
+
+    # Group resolved-related statuses
+    if any(word in status_lower for word in ['resolved', 'resolve', 'completed', 'complete']):
+        return 'Resolved'
+
+    # Group in-progress related statuses
+    if any(word in status_lower for word in ['inprogress', 'in progress', 'in-progress', 'progress', 'working']):
+        return 'In Progress'
+
+    # Group new/open related statuses
+    if any(word in status_lower for word in ['new', 'open', 'created']):
+        return 'New'
+
+    # Group awaiting/waiting related statuses (excluding approval which is handled above)
+    if any(word in status_lower for word in ['awaiting', 'waiting', 'pending']) and 'approval' not in status_lower:
+        return 'Awaiting'
+
+    # Return original status if no grouping applies
+    return status
+
 def extract_resource_status_counts(file_path):
     """
     Extract resource, status and date-wise count data from Excel file
@@ -100,8 +136,9 @@ def extract_resource_status_counts(file_path):
         # Get status
         status = None
         if status_col and pd.notna(row.get(status_col)):
-            status = str(row[status_col]).strip()
-            if status:
+            original_status = str(row[status_col]).strip()
+            if original_status:
+                status = normalize_status(original_status)
                 status_counts[status] += 1
         
         # Get date - Handle merged cells
@@ -158,10 +195,10 @@ def create_sample_data():
     
     status_counts = {
         "New": 12,
-        "Inprogress": 20,
+        "In Progress": 20,
         "Awaiting": 15,
         "Internal Solution Provided": 10,
-        "Resolved with Customer": 25,
+        "Resolved": 25,
         "Closed": 6
     }
     
@@ -177,10 +214,10 @@ def create_sample_data():
             },
             "statuses": {
                 "New": 3,
-                "Inprogress": 5,
+                "In Progress": 5,
                 "Awaiting": 4,
                 "Internal Solution Provided": 2,
-                "Resolved with Customer": 5,
+                "Resolved": 5,
                 "Closed": 1
             }
         },
@@ -194,10 +231,10 @@ def create_sample_data():
             },
             "statuses": {
                 "New": 2,
-                "Inprogress": 3,
+                "In Progress": 3,
                 "Awaiting": 2,
                 "Internal Solution Provided": 2,
-                "Resolved with Customer": 4,
+                "Resolved": 4,
                 "Closed": 1
             }
         },
@@ -211,10 +248,10 @@ def create_sample_data():
             },
             "statuses": {
                 "New": 2,
-                "Inprogress": 4,
+                "In Progress": 4,
                 "Awaiting": 3,
                 "Internal Solution Provided": 2,
-                "Resolved with Customer": 8,
+                "Resolved": 8,
                 "Closed": 2
             }
         },
@@ -228,10 +265,10 @@ def create_sample_data():
             },
             "statuses": {
                 "New": 2,
-                "Inprogress": 4,
+                "In Progress": 4,
                 "Awaiting": 3,
                 "Internal Solution Provided": 2,
-                "Resolved with Customer": 4,
+                "Resolved": 4,
                 "Closed": 1
             }
         },
@@ -245,10 +282,10 @@ def create_sample_data():
             },
             "statuses": {
                 "New": 3,
-                "Inprogress": 4,
+                "In Progress": 4,
                 "Awaiting": 3,
                 "Internal Solution Provided": 2,
-                "Resolved with Customer": 4,
+                "Resolved": 4,
                 "Closed": 1
             }
         }
