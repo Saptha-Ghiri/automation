@@ -18,22 +18,18 @@ def extract_date_period_from_excel(file_path):
     """Extract date period from Excel file cell B7"""
     try:
         wb = load_workbook(file_path)
-        # Try to get the 'Cloud Services Report' sheet first, if not found use first sheet
         if 'Cloud Services Report' in wb.sheetnames:
             ws = wb['Cloud Services Report']
         else:
             ws = wb.active
         
-        # Get cell B7 content
         b7_value = ws['B7'].value
         
         if b7_value:
-            # Convert to string if not already
             date_text = str(b7_value)
             st.info(f"Found date field in B7: {date_text}")
             
-            # Extract date range using regex - looking for pattern like (9/1/2025 to 9/7/2025)
-            # Try multiple patterns to handle different formats
+           
             patterns = [
                 r'\((\d{1,2}/\d{1,2}/\d{4})\s+to\s+(\d{1,2}/\d{1,2}/\d{4})\)',  # (9/1/2025 to 9/7/2025)
                 r'(\d{1,2}/\d{1,2}/\d{4})\s+to\s+(\d{1,2}/\d{1,2}/\d{4})',      # 9/1/2025 to 9/7/2025
@@ -52,17 +48,15 @@ def extract_date_period_from_excel(file_path):
                 start_date_str = match.group(1)
                 end_date_str = match.group(2)
                 
-                # Parse dates
                 start_date = datetime.strptime(start_date_str, '%m/%d/%Y')
                 end_date = datetime.strptime(end_date_str, '%m/%d/%Y')
                 
-                # Calculate report date (end date + 1 day)
                 report_date = end_date + timedelta(days=1)
                 
-                # Format strings
+
                 period_str = f"{start_date.strftime('%m/%d/%Y')} to {end_date.strftime('%m/%d/%Y')}"
-                report_date_str = report_date.strftime('%d %B %Y')  # e.g., "8 September 2025"
-                new_date_str = end_date.strftime('%m/%d/%Y')  # e.g., "09/07/2025"
+                report_date_str = report_date.strftime('%d %B %Y')  
+                new_date_str = end_date.strftime('%m/%d/%Y') 
                 
                 return {
                     'period': period_str,
@@ -80,7 +74,6 @@ def extract_date_period_from_excel(file_path):
     except Exception as e:
         st.error(f"Error extracting date period: {e}")
     
-    # Return default values if extraction fails
     return {
         'period': '09/01/2025 to 09/07/2025',
         'report_date': '8 September 2025',
@@ -106,25 +99,22 @@ def check_and_cleanup_empty_section():
     current_section = st.session_state.current_section
     
     if current_section >= len(sections) - 1:
-        return False  # No more sections
+        return False 
     
-    start_row = sections[current_section] + 1  # First row after header/previous subtotal
-    end_row = sections[current_section + 1]    # Subtotal row of current section
+    start_row = sections[current_section] + 1  
+    end_row = sections[current_section + 1]  
     
-    # Check if section has any valid tickets (non-subtotal, non-empty rows)
+ 
     has_tickets = False
     for row in range(start_row, end_row):
-        # Skip if this is the subtotal row itself
         val_status = ws.cell(row=row, column=2).value
         if val_status and str(val_status).strip() in ["Subtotal", "Total"]:
             continue
             
-        # Skip count rows  
         val_col3 = ws.cell(row=row, column=3).value
         if val_col3 and str(val_col3).strip() == "Count":
             continue
             
-        # Check if row has ticket data
         val_case_number = ws.cell(row=row, column=4).value
         val_subject = ws.cell(row=row, column=7).value
         val_responsible = ws.cell(row=row, column=5).value
@@ -1131,8 +1121,8 @@ def create_combined_json_data():
                 'summary_stats': {
                     'total_tickets': sum(temp_daas_data['status_counts'].values()),
                     'awaiting': temp_daas_data['status_counts'].get('Awaiting', 0),
-                    'closed': temp_daas_data['status_counts'].get('Ticket closed', 0),
-                    'resolved': temp_daas_data['status_counts'].get('Resolved with Customer', 0)
+                    'closed': temp_daas_data['status_counts'].get('Closed', 0),
+                    'resolved': temp_daas_data['status_counts'].get('Resolved', 0)
                 },
                 'daily_data': {}
             }
@@ -1320,7 +1310,7 @@ def main():
         
         with col2:
             st.subheader("DaaS Queue File")
-            temp_daas_file = st.file_uploader("Choose temp_daas_queue Excel file", type=['xlsx', 'xls'], key="daas_file")
+            temp_daas_file = st.file_uploader("Choose Daas Queue Excel file", type=['xlsx', 'xls'], key="daas_file")
         
         # Process files when both are uploaded
         if uploaded_file is not None:
@@ -1398,8 +1388,11 @@ def main():
                 st.rerun()
 
             if update_row:
-                process_current_ticket("update", action_text, selected_account)
-                st.rerun()
+                if action_text.strip():
+                    process_current_ticket("update", action_text, selected_account)
+                    st.rerun()
+                else:
+                    st.error("❌ Please enter action text before updating.")
         else:
             # All tickets processed
             st.session_state.processing_complete = True
